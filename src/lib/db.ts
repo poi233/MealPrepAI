@@ -84,3 +84,33 @@ export async function getMealPlanByPreferencesFromDb(dietaryPreferences: string)
     throw new Error("Failed to retrieve meal plan from the database.");
   }
 }
+
+/**
+ * Deletes a meal plan from the database based on dietary preferences.
+ * @param dietaryPreferences - The user's dietary preferences string.
+ * @returns Promise<void>
+ */
+export async function deleteMealPlanFromDb(dietaryPreferences: string): Promise<void> {
+  await ensureMealPlansTableExists(); // Ensure the table is ready.
+
+  if (!dietaryPreferences || dietaryPreferences.trim() === "") {
+    // Avoid attempting to delete with empty preferences.
+    console.warn("Attempted to delete meal plan with empty dietary preferences.");
+    return;
+  }
+
+  try {
+    const result = await sql`
+      DELETE FROM meal_plans
+      WHERE dietary_preferences = ${dietaryPreferences};
+    `;
+    if (result.rowCount === 0) {
+      console.log(`No meal plan found with preferences "${dietaryPreferences}" to delete.`);
+    } else {
+      console.log(`Successfully deleted meal plan with preferences "${dietaryPreferences}".`);
+    }
+  } catch (error) {
+    console.error("Database error: Failed to delete meal plan by preferences:", error);
+    throw new Error("Failed to delete meal plan from the database.");
+  }
+}

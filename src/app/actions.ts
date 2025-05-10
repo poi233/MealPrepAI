@@ -1,7 +1,7 @@
 "use server";
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import { saveMealPlanToDb, getMealPlanByPreferencesFromDb } from "@/lib/db";
+import { saveMealPlanToDb, getMealPlanByPreferencesFromDb, deleteMealPlanFromDb } from "@/lib/db";
 
 export async function generateMealPlanAction(
   input: GenerateWeeklyMealPlanInput
@@ -50,5 +50,21 @@ export async function getSavedMealPlanAction(
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching the saved meal plan.";
     // Return an error object to be handled by the client.
     return { error: errorMessage };
+  }
+}
+
+export async function deleteMealPlanAction(
+  dietaryPreferences: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!dietaryPreferences || dietaryPreferences.trim() === "") {
+    return { success: false, error: "Dietary preferences cannot be empty." };
+  }
+  try {
+    await deleteMealPlanFromDb(dietaryPreferences);
+    return { success: true };
+  } catch (e) {
+    console.error("Error deleting meal plan from database:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while deleting the meal plan.";
+    return { success: false, error: errorMessage };
   }
 }
