@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +37,7 @@ type MealPreferencesFormValues = z.infer<typeof formSchema>;
 
 export default function MealPreferencesForm() {
   const { toast } = useToast();
-  const { mealPlan, setMealPlan, setIsLoading, setError, isLoading } = useMealPlan();
+  const { mealPlan, setMealPlan, setIsLoading, setError, isLoading, error } = useMealPlan();
   const { dietaryPreferences: userProfilePreferences } = useUserProfile();
 
   const form = useForm<MealPreferencesFormValues>({
@@ -49,9 +48,9 @@ export default function MealPreferencesForm() {
   });
 
   const fetchSavedPlan = useCallback(async (preferences: string) => {
-    const normalizedPrefs = normalizePreferences(preferences); // Ensure we are using normalized prefs for fetching
+    const normalizedPrefs = normalizePreferences(preferences); 
     if (!normalizedPrefs) {
-      setMealPlan(null); // Clear plan if preferences are empty after normalization
+      setMealPlan(null); 
       return;
     }
 
@@ -83,7 +82,7 @@ export default function MealPreferencesForm() {
         duration: 3000,
       });
     }
-  }, [setIsLoading, setError, setMealPlan, toast]); // Removed mealPlan dependency
+  }, [setIsLoading, setError, setMealPlan, toast]);
 
   useEffect(() => {
     const currentFormPreferences = normalizePreferences(form.getValues("dietaryPreferences"));
@@ -91,21 +90,27 @@ export default function MealPreferencesForm() {
 
     if (userProfilePreferences) {
       if (currentFormPreferences !== userProfilePreferences) {
-        form.setValue("dietaryPreferences", userProfilePreferences);
+        form.setValue("dietaryPreferences", userProfilePreferences, { shouldValidate: true });
         fetchSavedPlan(userProfilePreferences);
-      } else if (mealPlan === null && !isLoading && !error) {
-        fetchSavedPlan(userProfilePreferences);
+      } else { 
+        // Form is in sync with profile (currentFormPreferences === userProfilePreferences)
+        // This branch is for:
+        // - Initial load where form defaults to profile prefs.
+        // - Or, user typed in prefs that match profile prefs.
+        if (mealPlan === null && !isLoading && !error) { 
+          fetchSavedPlan(userProfilePreferences);
+        }
       }
-    } else {
-      if (currentFormPreferences !== "") {
-        form.setValue("dietaryPreferences", "");
+    } else { // No profile preferences
+      if (currentFormPreferences !== "") { 
+        form.setValue("dietaryPreferences", "", { shouldValidate: true });
       }
-      if (mealPlan !== null) {
+      if (mealPlan !== null) { 
         setMealPlan(null);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfilePreferences, fetchSavedPlan]); // form, mealPlan, isLoading, error are intentionally omitted or handled by fetchSavedPlan's stability
+  }, [userProfilePreferences, fetchSavedPlan, mealPlan, isLoading, error, form, setMealPlan]);
+
 
   async function onSubmit(values: MealPreferencesFormValues) {
     // values.dietaryPreferences is already normalized and validated by Zod schema's transform and pipe
@@ -153,6 +158,7 @@ export default function MealPreferencesForm() {
                   placeholder="e.g., vegetarian, gluten-free, allergic to peanuts, prefer high-protein meals..."
                   className="min-h-[120px] resize-y"
                   {...field}
+                  value={field.value ?? ""} // Ensure value is not null/undefined
                 />
               </FormControl>
               <FormDescription>
