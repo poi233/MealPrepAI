@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,164 +16,182 @@ import {
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { generateMealPlanAction, getSavedMealPlanAction } from "@/app/actions";
-import { useMealPlan } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
-import { useEffect, useCallback } from "react";
-import { ChefHat } from "lucide-react";
+import { useMealPlan } from "@/contexts/MealPlanContext";
+import { generateMealPlanAction, getSavedMealPlanAction } from "@/app/actions";
+import { useEffect } from "react";
+import { Lightbulb, Sparkles } from "lucide-react";
 import { normalizePreferences } from "@/lib/utils";
+import type { GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 
-const formSchema = z.object({
+const mealPreferencesFormSchema = z.object({
   dietaryPreferences: z.string()
-    .transform(val => normalizePreferences(val))
-    .pipe(z.string().min(1, { message: "Dietary preferences cannot be empty." }))
-    .pipe(z.string().min(10, {
-      message: "Please provide more details about your dietary preferences (at least 10 characters after normalization).",
+    .transform(val => normalizePreferences(val)) // Normalize before length check
+    .pipe(z.string().min(3, {
+        message: "Please enter your dietary preferences (at least 3 characters).",
     }).max(500, {
-      message: "Dietary preferences must not exceed 500 characters after normalization.",
+        message: "Dietary preferences must not exceed 500 characters.",
     })),
 });
 
-type MealPreferencesFormValues = z.infer<typeof formSchema>;
+type MealPreferencesFormValues = z.infer<typeof mealPreferencesFormSchema>;
 
 export default function MealPreferencesForm() {
   const { toast } = useToast();
-  const { mealPlan, setMealPlan, setIsLoading, setError, isLoading, error } = useMealPlan();
-  const { dietaryPreferences: userProfilePreferences } = useUserProfile();
+  const { dietaryPreferences: profilePreferences, setDietaryPreferences: setProfilePreferences } = useUserProfile();
+  const { setMealPlan, setIsLoading, setError, mealPlan, isLoading: isMealPlanLoading } = useMealPlan();
 
   const form = useForm<MealPreferencesFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(mealPreferencesFormSchema),
     defaultValues: {
-      dietaryPreferences: userProfilePreferences || "",
+      dietaryPreferences: profilePreferences || "",
     },
   });
 
-  const fetchSavedPlan = useCallback(async (preferences: string) => {
-    const normalizedPrefs = normalizePreferences(preferences); 
-    if (!normalizedPrefs) {
-      setMealPlan(null); 
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    
-    const result = await getSavedMealPlanAction(normalizedPrefs);
-    setIsLoading(false);
-
-    if (result && "error" in result) {
-      setError(result.error);
-      toast({
-        title: "Error Loading Saved Plan",
-        description: result.error,
-        variant: "destructive",
-      });
-      setMealPlan(null);
-    } else if (result) {
-      setMealPlan(result);
-      toast({
-        title: "Meal Plan Loaded",
-        description: "Loaded a saved meal plan matching your preferences.",
-      });
-    } else {
-      setMealPlan(null);
-      toast({
-        title: "No Saved Plan",
-        description: "No saved meal plan found for these preferences. Feel free to generate a new one!",
-        duration: 3000,
-      });
-    }
-  }, [setIsLoading, setError, setMealPlan, toast]);
-
+  // Effect to pre-fill form with profile preferences or load existing plan
   useEffect(() => {
-    const currentFormPreferences = normalizePreferences(form.getValues("dietaryPreferences"));
-    // userProfilePreferences from context is already normalized or ""
+    const normalizedProfilePrefs = normalizePreferences(profilePreferences);
+    form.reset({ dietaryPreferences: normalizedProfilePrefs });
 
-    if (userProfilePreferences) {
-      if (currentFormPreferences !== userProfilePreferences) {
-        form.setValue("dietaryPreferences", userProfilePreferences, { shouldValidate: true });
-        fetchSavedPlan(userProfilePreferences);
-      } else { 
-        // Form is in sync with profile (currentFormPreferences === userProfilePreferences)
-        // This branch is for:
-        // - Initial load where form defaults to profile prefs.
-        // - Or, user typed in prefs that match profile prefs.
-        if (mealPlan === null && !isLoading && !error) { 
-          fetchSavedPlan(userProfilePreferences);
+    if (normalizedProfilePrefs && !mealPlan && !isMealPlanLoading) {
+      // Attempt to load saved plan if preferences exist, no plan is loaded, and not currently loading
+      const loadSavedPlan = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const existingPlan = await getSavedMealPlanAction(normalizedProfilePrefs);
+          if (existingPlan && !("error" in existingPlan)) {
+            setMealPlan(existingPlan);
+            toast({
+              title: "Meal Plan Loaded",
+              description: "Found a saved meal plan for your preferences.",
+            });
+          } else if (existingPlan && "error" in existingPlan) {
+             // Do not show error if plan not found, only for actual fetch errors
+             if (!existingPlan.error.toLowerCase().includes("not found")) {
+                setError(existingPlan.error);
+             }
+          }
+        } catch (e: any) {
+          setError(e.message || "Failed to load saved meal plan.");
+        } finally {
+          setIsLoading(false);
         }
-      }
-    } else { // No profile preferences
-      if (currentFormPreferences !== "") { 
-        form.setValue("dietaryPreferences", "", { shouldValidate: true });
-      }
-      if (mealPlan !== null) { 
-        setMealPlan(null);
-      }
+      };
+      loadSavedPlan();
     }
-  }, [userProfilePreferences, fetchSavedPlan, mealPlan, isLoading, error, form, setMealPlan]);
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilePreferences, form.reset, setMealPlan, setIsLoading, setError, mealPlan]); // Add mealPlan to dependencies to avoid re-fetching if already loaded
 
   async function onSubmit(values: MealPreferencesFormValues) {
-    // values.dietaryPreferences is already normalized and validated by Zod schema's transform and pipe
     setIsLoading(true);
     setError(null);
-    setMealPlan(null); 
+    setMealPlan(null); // Clear previous meal plan
 
-    const result = await generateMealPlanAction(values); // Pass Zod-processed values
-
-    setIsLoading(false);
-    if (result && "error" in result) {
-      setError(result.error);
+    // Normalize preferences for consistent API calls and storage
+    const currentNormalizedPrefs = normalizePreferences(values.dietaryPreferences);
+    
+    // Update profile if current form preferences differ from stored profile preferences
+    if (currentNormalizedPrefs !== normalizePreferences(profilePreferences)) {
+      setProfilePreferences(currentNormalizedPrefs); 
       toast({
-        title: "Error Generating Plan",
-        description: result.error,
+        title: "Preferences Updated",
+        description: "Your dietary preferences have been updated in your profile.",
+        variant: "default",
+      });
+    }
+
+    try {
+      // First, try to get from DB
+      const existingPlan = await getSavedMealPlanAction(currentNormalizedPrefs);
+      if (existingPlan && !("error" in existingPlan)) {
+        setMealPlan(existingPlan);
+        toast({
+          title: "Meal Plan Loaded",
+          description: "Found a saved meal plan for these preferences.",
+        });
+        setIsLoading(false);
+        return;
+      } else if (existingPlan && "error" in existingPlan && !existingPlan.error.toLowerCase().includes("not found")) {
+        // If there's an error fetching, but it's not 'not found', show it and stop.
+        setError(existingPlan.error);
+        setIsLoading(false);
+        return;
+      }
+      // If not found or error was 'not found', proceed to generate
+      
+      const result = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
+
+      if ("error" in result) {
+        setError(result.error);
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        setMealPlan(result as GenerateWeeklyMealPlanOutput); // Cast because we checked for error
+        toast({
+          title: "Meal Plan Generated!",
+          description: "Your personalized 7-day meal plan is ready.",
+        });
+      }
+    } catch (e: any) {
+      const errorMessage = e.message || "An unexpected error occurred.";
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
         variant: "destructive",
       });
-    } else if (result) {
-      setMealPlan(result);
-      toast({
-        title: "Meal Plan Generated!",
-        description: "Your new weekly meal plan is ready and saved.",
-      });
-    } else {
-        setError("Failed to generate meal plan for an unknown reason.");
-        toast({
-            title: "Error Generating Plan",
-            description: "The AI did not return a meal plan.",
-            variant: "destructive",
-        });
+    } finally {
+      setIsLoading(false);
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-card p-6 sm:p-8 rounded-lg shadow-lg">
-        <FormField
-          control={form.control}
-          name="dietaryPreferences"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-lg font-semibold">Your Dietary Preferences</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="e.g., vegetarian, gluten-free, allergic to peanuts, prefer high-protein meals..."
-                  className="min-h-[120px] resize-y"
-                  {...field}
-                  value={field.value ?? ""} // Ensure value is not null/undefined
-                />
-              </FormControl>
-              <FormDescription>
-                Enter your dietary needs (min 10 chars). If a plan for these exact preferences exists in your history, it will be loaded. Otherwise, a new one will be generated and saved.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading}>
-          <ChefHat className="mr-2 h-5 w-5" />
-          {isLoading ? "Processing..." : "Generate Weekly Meal Plan"}
-        </Button>
-      </form>
-    </Form>
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-10">
+        <div className="flex items-center justify-center gap-3 mb-4">
+            <Lightbulb size={40} className="text-primary"/>
+            <h1 className="text-4xl font-bold text-primary">
+            AI Meal Planner
+            </h1>
+        </div>
+        <p className="text-lg text-muted-foreground">
+            Tell us your dietary preferences, and we&apos;ll whip up a personalized 7-day meal plan for you!
+        </p>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-card p-6 sm:p-8 rounded-lg shadow-xl">
+          <FormField
+            control={form.control}
+            name="dietaryPreferences"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xl font-semibold">Dietary Preferences</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="e.g., vegetarian, low-carb, no nuts, high protein..."
+                    className="min-h-[120px] resize-y"
+                    {...field}
+                    value={field.value ?? ""} // Ensure value is not undefined
+                  />
+                </FormControl>
+                <FormDescription>
+                  Be as specific as you like. Your preferences are saved to your profile.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6" disabled={isMealPlanLoading}>
+            <Sparkles className="mr-2 h-5 w-5" />
+            {isMealPlanLoading ? "Generating..." : "Generate Meal Plan"}
+          </Button>
+        </form>
+      </Form>
+    </div>
   );
 }
