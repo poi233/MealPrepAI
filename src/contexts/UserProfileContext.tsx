@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
+import { normalizePreferences } from '@/lib/utils';
 
 interface UserProfileContextType {
   dietaryPreferences: string;
@@ -17,14 +18,13 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const storedPreferences = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedPreferences) {
-      setDietaryPreferencesState(storedPreferences);
-    }
+    setDietaryPreferencesState(normalizePreferences(storedPreferences));
   }, []);
 
   const setDietaryPreferences = (preferences: string) => {
-    setDietaryPreferencesState(preferences);
-    localStorage.setItem(LOCAL_STORAGE_KEY, preferences);
+    const normalized = normalizePreferences(preferences);
+    setDietaryPreferencesState(normalized);
+    localStorage.setItem(LOCAL_STORAGE_KEY, normalized);
   };
 
   return (

@@ -18,11 +18,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useEffect } from "react";
 import { Save } from "lucide-react";
+import { normalizePreferences } from "@/lib/utils";
 
 const profileFormSchema = z.object({
-  dietaryPreferences: z.string().max(500, {
-    message: "Dietary preferences must not exceed 500 characters.",
-  }).optional(), // Optional, as user might not have any or want to clear it.
+  dietaryPreferences: z.string()
+    .transform(val => normalizePreferences(val))
+    .pipe(z.string().max(500, {
+      message: "Dietary preferences must not exceed 500 characters after normalization.",
+    }))
+    .optional()
+    .or(z.literal('')), // Allows empty string, which normalize('') produces.
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -39,12 +44,15 @@ export default function UserProfileForm() {
   });
 
   useEffect(() => {
-    // Update form if context changes (e.g., on initial load from localStorage)
+    // userProfilePreferences from context is already normalized
     form.reset({ dietaryPreferences: dietaryPreferences || "" });
   }, [dietaryPreferences, form]);
 
   function onSubmit(values: ProfileFormValues) {
-    setDietaryPreferences(values.dietaryPreferences || "");
+    // values.dietaryPreferences is already normalized by Zod transform.
+    // It can be "" if user cleared the field, or undefined if field was never touched and schema is optional.
+    // useUserProfile's setDietaryPreferences will handle normalize(undefined) -> ""
+    setDietaryPreferences(values.dietaryPreferences || ""); 
     toast({
       title: "Profile Updated",
       description: "Your dietary preferences have been saved.",
@@ -62,9 +70,11 @@ export default function UserProfileForm() {
               <FormLabel className="text-xl font-semibold">Your Dietary Preferences</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="e.g., vegetarian, gluten-free, allergic to peanuts, prefer high-protein meals..."
+                  placeholder="e.g., vegetarian, gluten-free, allergic to peanuts, prefer high-protein meals... Leave blank to clear."
                   className="min-h-[150px] resize-y"
                   {...field}
+                  // Ensure field.value is never null/undefined for Textarea
+                  value={field.value ?? ""} 
                 />
               </FormControl>
               <FormDescription>
