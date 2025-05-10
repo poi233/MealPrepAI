@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,10 +16,10 @@ import {
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { generateMealPlanAction } from "@/app/actions";
+import { generateMealPlanAction, getSavedMealPlanAction } from "@/app/actions";
 import { useMealPlan } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { ChefHat } from "lucide-react";
 
 const formSchema = z.object({
@@ -33,27 +34,90 @@ type MealPreferencesFormValues = z.infer<typeof formSchema>;
 
 export default function MealPreferencesForm() {
   const { toast } = useToast();
-  const { setMealPlan, setIsLoading, setError, isLoading } = useMealPlan();
+  const { mealPlan, setMealPlan, setIsLoading, setError, isLoading } = useMealPlan();
   const { dietaryPreferences: userProfilePreferences } = useUserProfile();
 
   const form = useForm<MealPreferencesFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      dietaryPreferences: "",
+      // Initialize with profile preferences. This value is used by the useEffect below.
+      dietaryPreferences: userProfilePreferences || "",
     },
   });
 
-  useEffect(() => {
-    if (userProfilePreferences) {
-      form.setValue("dietaryPreferences", userProfilePreferences);
+  const fetchSavedPlan = useCallback(async (preferences: string) => {
+    if (!preferences || preferences.trim() === "") {
+      // If preferences are cleared (e.g. from profile), ensure no meal plan is displayed.
+      if (mealPlan !== null) setMealPlan(null);
+      return;
     }
-  }, [userProfilePreferences, form]);
+
+    setIsLoading(true);
+    setError(null);
+    
+    const result = await getSavedMealPlanAction(preferences);
+    setIsLoading(false);
+
+    if (result && "error" in result) {
+      setError(result.error);
+      toast({
+        title: "Error Loading Saved Plan",
+        description: result.error,
+        variant: "destructive",
+      });
+      setMealPlan(null); // Clear any existing plan on error
+    } else if (result) { // result is GenerateWeeklyMealPlanOutput
+      setMealPlan(result);
+      toast({
+        title: "Meal Plan Loaded",
+        description: "Loaded a saved meal plan matching your preferences.",
+      });
+    } else { // result is null (no plan found for these specific preferences)
+      // If a plan was displayed for different preferences, clear it.
+      if (mealPlan !== null) setMealPlan(null); 
+      toast({
+        title: "No Saved Plan",
+        description: "No saved meal plan found for these preferences. Feel free to generate a new one!",
+        duration: 3000,
+      });
+    }
+  }, [setIsLoading, setError, setMealPlan, toast, mealPlan]);
+
+  // Effect to react to userProfilePreferences changes (e.g., from profile page or initial load from localStorage)
+  useEffect(() => {
+    const currentFormPreferences = form.getValues("dietaryPreferences");
+
+    if (userProfilePreferences) {
+      // Profile has preferences
+      if (currentFormPreferences !== userProfilePreferences) {
+        // Form doesn't match profile: update form and fetch plan for profile's preferences
+        form.setValue("dietaryPreferences", userProfilePreferences);
+        fetchSavedPlan(userProfilePreferences);
+      } else if (mealPlan === null && !isLoading && !error) {
+        // Form matches profile, but no plan loaded and not currently loading/error: try fetching.
+        // This covers initial mount where defaultValues match profile, or if a previous fetch failed/found nothing.
+        fetchSavedPlan(userProfilePreferences);
+      }
+    } else {
+      // Profile has no preferences (cleared or initially empty)
+      if (currentFormPreferences !== "") {
+        // If form has something, clear it to reflect empty profile
+        form.setValue("dietaryPreferences", "");
+      }
+      if (mealPlan !== null) {
+        // If a meal plan was displayed, clear it as profile preferences are now empty
+        setMealPlan(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfilePreferences, fetchSavedPlan]); // Dependencies: userProfilePreferences and the memoized fetchSavedPlan. form, mealPlan, isLoading, error are indirectly handled or would cause loops.
 
   async function onSubmit(values: MealPreferencesFormValues) {
     setIsLoading(true);
     setError(null);
-    setMealPlan(null);
+    setMealPlan(null); // Clear any existing plan before generating a new one
 
+    // generateMealPlanAction now also handles saving the generated plan to the DB
     const result = await generateMealPlanAction(values);
 
     setIsLoading(false);
@@ -68,10 +132,8 @@ export default function MealPreferencesForm() {
       setMealPlan(result);
       toast({
         title: "Meal Plan Generated!",
-        description: "Your weekly meal plan is ready.",
+        description: "Your new weekly meal plan is ready and saved.",
       });
-      // Optionally clear form or scroll to plan
-      // form.reset({ dietaryPreferences: values.dietaryPreferences }); // Keep preferences for regeneration
     }
   }
 
@@ -92,7 +154,7 @@ export default function MealPreferencesForm() {
                 />
               </FormControl>
               <FormDescription>
-                Tell us about your eating habits, allergies, and any specific dietary goals. The more detail, the better the plan!
+                Enter your dietary needs. If a plan for these exact preferences exists in your history, it will be loaded. Otherwise, a new one will be generated and saved.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -100,7 +162,7 @@ export default function MealPreferencesForm() {
         />
         <Button type="submit" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading}>
           <ChefHat className="mr-2 h-5 w-5" />
-          {isLoading ? "Generating Your Plan..." : "Generate Weekly Meal Plan"}
+          {isLoading ? "Processing..." : "Generate Weekly Meal Plan"}
         </Button>
       </form>
     </Form>
