@@ -1,36 +1,88 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMealPlan } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
-import AddRecipeDialog from "./AddRecipeDialog"; // Import the new dialog
+import AddRecipeDialog from "./AddRecipeDialog";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Trash2, Utensils } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { deleteMealPlanAction, saveMealPlanToDb } from "@/app/actions";
+import { deleteMealPlanAction, saveMealPlanToDb, getSavedMealPlanAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
+import { normalizePreferences } from "@/lib/utils";
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
 export default function GeneratedMealPlan() {
   const { mealPlan, isLoading, error, setMealPlan, setError, setIsLoading } = useMealPlan();
-  const { dietaryPreferences } = useUserProfile();
+  const { dietaryPreferences: profilePreferences } = useUserProfile();
   const { toast } = useToast();
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
 
+  useEffect(() => {
+    const normalizedProfilePrefs = normalizePreferences(profilePreferences);
+
+    if (normalizedProfilePrefs && !mealPlan && !isLoading) {
+      const loadInitialPlan = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const existingPlan = await getSavedMealPlanAction(normalizedProfilePrefs);
+          if (existingPlan && !("error" in existingPlan)) {
+            setMealPlan(existingPlan);
+            // Toast might be too noisy if plan loads successfully every time. Consider removing or making it more subtle.
+            // toast({
+            //   title: "Meal Plan Loaded",
+            //   description: "Found a saved meal plan for your preferences.",
+            // });
+          } else if (existingPlan && "error" in existingPlan) {
+            if (!existingPlan.error.toLowerCase().includes("not found")) {
+                setError(existingPlan.error);
+                toast({
+                    title: "Error Loading Plan",
+                    description: existingPlan.error,
+                    variant: "destructive",
+                });
+            }
+          }
+        } catch (e: any) {
+          setError(e.message || "Failed to load saved meal plan.");
+          toast({
+            title: "Error",
+            description: e.message || "Failed to load saved meal plan.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadInitialPlan();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilePreferences, mealPlan, isLoading]); // Dependencies ensure this runs when prefs are available, plan isn't loaded, and not currently loading. Added stable setters to dep array.
+
   const saveCurrentPlanToDb = async (planToSave: GenerateWeeklyMealPlanOutput | null) => {
-    if (!planToSave || !dietaryPreferences) return;
+    if (!planToSave || !profilePreferences) return;
+    const normalizedPrefs = normalizePreferences(profilePreferences);
+    if (!normalizedPrefs) {
+        toast({
+            title: "Cannot Save Plan",
+            description: "Dietary preferences are not set. Please set them in your profile or when generating a plan.",
+            variant: "destructive",
+        });
+        return;
+    }
     try {
-      await saveMealPlanToDb(dietaryPreferences, planToSave);
+      await saveMealPlanToDb(normalizedPrefs, planToSave);
       toast({
         title: "Plan Updated",
-        description: "Your meal plan changes have been saved to the database.",
+        description: "Your meal plan changes have been saved.",
       });
     } catch (dbError: any) {
       console.error("Failed to save meal plan to DB:", dbError);
@@ -46,19 +98,20 @@ export default function GeneratedMealPlan() {
     setIsLoading(true);
     setError(null);
     
-    if (dietaryPreferences) {
+    const normalizedPrefs = normalizePreferences(profilePreferences);
+    if (normalizedPrefs) {
       try {
-        const result = await deleteMealPlanAction(dietaryPreferences);
+        const result = await deleteMealPlanAction(normalizedPrefs);
         if (result.success) {
           toast({
             title: "Plan Cleared",
-            description: "The meal plan has been removed from your records.",
+            description: "The meal plan has been removed.",
           });
         } else {
           setError(result.error || "Failed to clear plan from database.");
           toast({
             title: "Error",
-            description: result.error || "Could not remove the plan from records.",
+            description: result.error || "Could not remove the plan.",
             variant: "destructive",
           });
         }
@@ -128,7 +181,6 @@ export default function GeneratedMealPlan() {
     setAddRecipeTarget(null);
   };
 
-
   if (isLoading) {
     return (
       <div className="space-y-4 mt-6">
@@ -169,23 +221,25 @@ export default function GeneratedMealPlan() {
   }
 
   if (!mealPlan || mealPlan.weeklyMealPlan.length === 0) {
-    if (dietaryPreferences && !isLoading) {
-      return (
-        <div className="mt-8 text-center text-muted-foreground">
-          <p>No meal plan generated yet or found for your current preferences.</p>
-          <p>Use the form above to generate a new plan.</p>
+     return (
+        <div className="mt-12 text-center">
+            <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-4" />
+            <h2 className="text-2xl font-semibold text-muted-foreground mb-2">No Meal Plan Yet</h2>
+            <p className="text-muted-foreground">
+            Looks like you don&apos;t have a meal plan loaded.
+            </p>
+            <p className="text-muted-foreground">
+            Click &quot;Generate Meal Plan&quot; in the header to create one!
+            </p>
         </div>
-      );
-    }
-    return null; 
+    );
   }
 
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-        <h2 className="text-xl font-semibold text-center sm:text-left text-primary">Your Weekly Meal Plan</h2>
-        <div className="flex gap-2">
-          <Button
+        <h2 className="text-2xl font-bold text-primary">Your Weekly Meal Plan</h2>
+        <Button
             variant="outline"
             size="sm"
             onClick={handleClearPlan}
@@ -194,8 +248,7 @@ export default function GeneratedMealPlan() {
           >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
             {isLoading ? "Clearing..." : "Clear Plan"}
-          </Button>
-        </div>
+        </Button>
       </div>
       <div className="space-y-3">
         {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
@@ -222,4 +275,3 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
-
