@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -22,7 +21,7 @@ type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
 export default function GeneratedMealPlan() {
   const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError, setIsLoading: setMealPlanLoading } = useMealPlan();
-  const { activePlanName, isLoading: isProfileLoading } = useUserProfile();
+  const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
@@ -38,19 +37,22 @@ export default function GeneratedMealPlan() {
     if (planNameToLoad) { 
       const result = await getSavedMealPlanByNameAction(planNameToLoad);
       if (result && !("error" in result)) { 
-        if (result) { 
+        if (result && result.mealPlanData) { // Ensure mealPlanData is not null
             planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
         } else { 
-            planDataToSet = null;
+            // Plan found by name, but data might be missing or malformed in DB record.
+            console.warn(`Plan "${planNameToLoad}" found but data is missing/malformed.`);
+            planDataToSet = null; 
         }
-      } else if (result && "error" in result) { 
-        // User requested no console errors on load failure. Error will be handled by UI.
-        planDataToSet = null; 
       } else { 
-        planDataToSet = null;
+        // Error fetching or plan not found.
+        if (result && "error" in result) {
+          console.warn(`Error retrieving plan "${planNameToLoad}": ${result.error}.`);
+        }
+        planDataToSet = null; 
       }
     } else { 
-      planDataToSet = null;
+      planDataToSet = null; // No planNameToLoad provided
     }
     
     setMealPlan(planDataToSet);
@@ -59,6 +61,8 @@ export default function GeneratedMealPlan() {
 
 
   useEffect(() => {
+    // Only load if profile is not loading AND activePlanName is either defined or explicitly null (meaning no active plan).
+    // This avoids loading with a potentially stale activePlanName if profile is still initializing.
     if (!isProfileLoading) { 
         loadPlan(activePlanName);
     }
@@ -98,16 +102,17 @@ export default function GeneratedMealPlan() {
     setMealPlanLoading(true);
     setError(null);
     
+    const planNameToDelete = activePlanName; // Capture before it's potentially cleared
+
     try {
-      const result = await deleteMealPlanByNameAction(activePlanName);
+      const result = await deleteMealPlanByNameAction(planNameToDelete);
       if (result.success) {
         toast({
           title: "Plan Removed",
-          description: `The meal plan "${activePlanName}" has been removed.`,
+          description: `The meal plan "${planNameToDelete}" has been removed.`,
         });
-        setMealPlan(null); // Clear plan from context
-        // Active plan name is cleared via Header's select "clear" option if user desires
-        // Or if we want to force it here, call setActivePlanName(null) from userProfileContext
+        setMealPlan(null); 
+        setActivePlanName(null); // This is crucial: updates context, localStorage, and DB for active status
       } else {
         setError(result.error || "Failed to remove plan from database.");
         toast({
@@ -159,6 +164,7 @@ export default function GeneratedMealPlan() {
         description: "Plan description is missing. AI suggestions may not work correctly.",
         variant: "warning",
       });
+      // Allow adding manually even if description is missing for suggestions
     }
     setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
     setIsAddRecipeDialogOpen(true);
@@ -214,10 +220,12 @@ export default function GeneratedMealPlan() {
   }
 
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
+    // This specific error case might be redundant if activePlanName=null handles the "No plan" display.
+    // However, it can catch specific load errors if a plan was expected.
     return (
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-5 w-5" />
-        <AlertTitle>Error</AlertTitle>
+        <AlertTitle>Error Loading Plan</AlertTitle>
         <AlertDescription>{mealPlanError}</AlertDescription>
         <Button onClick={() => {
           setError(null); 
@@ -229,57 +237,44 @@ export default function GeneratedMealPlan() {
     );
   }
 
-  if (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0) {
-    if (!activePlanName) {
-      // Case 1: No plan is active.
-      return (
-        <div className="mt-12 text-center py-10">
-          <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-          <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
-          <p className="text-lg text-muted-foreground mb-6">
-            Please generate a new meal plan or select an existing one using the options in the header.
-          </p>
-        </div>
-      );
-    } else {
-      // Case 2: A plan is "active" (activePlanName is set), but it's empty or couldn't be loaded.
-      return (
-        <div className="mt-12 text-center py-10">
-          <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-          <h2 className="text-3xl font-semibold text-primary mb-3">
-            Plan "{activePlanName}" is Empty or Not Found
-          </h2>
-          <p className="text-lg text-muted-foreground mb-6">
-            The selected meal plan "{activePlanName}" might be empty, not found in the database, or could not be loaded.
-            <br />
-            You can try selecting another plan, generating it if it's new, or adding meals to it if it's just empty.
-          </p>
-        </div>
-      );
-    }
+  if (!activePlanName || !mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0) {
+    // This condition handles:
+    // 1. No activePlanName (from UserProfileContext).
+    // 2. activePlanName exists, but mealPlan data is null or empty (e.g., failed to load or plan is genuinely empty).
+    return (
+      <div className="mt-12 text-center py-10">
+        <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
+        <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
+        <p className="text-lg text-muted-foreground mb-6">
+          Please generate a new meal plan or select an existing one using the options in the header.
+        </p>
+      </div>
+    );
   }
-
+  
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
         <h2 className="text-2xl font-bold text-primary">
           {activePlanName ? `Active Plan: ${activePlanName}` : "Your Weekly Meal Plan"}
         </h2>
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearPlan}
-            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            disabled={isLoading || !activePlanName}
-          >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-            {isLoading ? "Processing..." : "Remove All"}
-        </Button>
+        {activePlanName && ( // Only show if there's an active plan
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearPlan}
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              disabled={isLoading} // isLoading from combined context loading states
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
+              {isLoading ? "Processing..." : "Remove All"}
+          </Button>
+        )}
       </div>
       <div className="space-y-3">
         {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
           <DailyMealCard 
-            key={`${activePlanName}-${dailyPlanItem.day}`}
+            key={`${activePlanName}-${dailyPlanItem.day}`} // Ensure key is unique with activePlanName
             dailyPlan={dailyPlanItem} 
             onDeleteMeal={handleDeleteMeal}
             onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
@@ -302,4 +297,3 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
-
