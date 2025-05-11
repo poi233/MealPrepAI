@@ -187,13 +187,13 @@ export default function AddRecipeDialog({
               )}
             />
             
-            <div className="flex flex-col sm:flex-row gap-2 justify-end">
+            <div className="flex flex-col sm:flex-row gap-2 justify-end items-center"> {/* items-center added for vertical alignment if buttons have different heights */}
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleSuggestRecipe}
                 disabled={isSuggestingRecipe || isGeneratingDetails || !planDescription}
-                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" // Adjusted size
+                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" 
               >
                 {isSuggestingRecipe ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
@@ -207,7 +207,7 @@ export default function AddRecipeDialog({
                 variant="outline"
                 onClick={handleGenerateDetails}
                 disabled={isGeneratingDetails || isSuggestingRecipe || !form.watch("recipeName")}
-                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" // Adjusted size
+                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" 
               >
                 {isGeneratingDetails ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
