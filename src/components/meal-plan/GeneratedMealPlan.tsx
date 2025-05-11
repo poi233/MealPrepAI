@@ -28,34 +28,33 @@ export default function GeneratedMealPlan() {
   useEffect(() => {
     const normalizedProfilePrefs = normalizePreferences(profilePreferences);
 
-    if (normalizedProfilePrefs && !mealPlan && !isLoading) {
+    // Only attempt to load if prefs exist, no plan is loaded, not currently loading, AND no existing error.
+    if (normalizedProfilePrefs && !mealPlan && !isLoading && !error) {
       const loadInitialPlan = async () => {
         setIsLoading(true);
-        setError(null);
+        // setError(null); // Clear previous error before attempting to load
         try {
           const existingPlan = await getSavedMealPlanAction(normalizedProfilePrefs);
           if (existingPlan && !("error" in existingPlan)) {
             setMealPlan(existingPlan);
-            // Toast might be too noisy if plan loads successfully every time. Consider removing or making it more subtle.
-            // toast({
-            //   title: "Meal Plan Loaded",
-            //   description: "Found a saved meal plan for your preferences.",
-            // });
           } else if (existingPlan && "error" in existingPlan) {
-            if (!existingPlan.error.toLowerCase().includes("not found")) {
-                setError(existingPlan.error);
-                toast({
-                    title: "Error Loading Plan",
-                    description: existingPlan.error,
-                    variant: "destructive",
-                });
-            }
+            // Only set error if it's not a "not found" type error.
+            // getSavedMealPlanAction returns null for "not found", not an error object.
+            // So this branch primarily handles actual DB errors.
+            setError(existingPlan.error);
+            toast({
+                title: "Error Loading Saved Plan",
+                description: existingPlan.error,
+                variant: "destructive",
+            });
           }
+          // If existingPlan is null (not found), no action needed here, UI will show "No Meal Plan Yet"
         } catch (e: any) {
-          setError(e.message || "Failed to load saved meal plan.");
+          const errorMessage = e.message || "Failed to load saved meal plan.";
+          setError(errorMessage);
           toast({
-            title: "Error",
-            description: e.message || "Failed to load saved meal plan.",
+            title: "Loading Error",
+            description: errorMessage,
             variant: "destructive",
           });
         } finally {
@@ -65,7 +64,7 @@ export default function GeneratedMealPlan() {
       loadInitialPlan();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, mealPlan, isLoading]); // Dependencies ensure this runs when prefs are available, plan isn't loaded, and not currently loading. Added stable setters to dep array.
+  }, [profilePreferences, mealPlan, isLoading, error]); // Dependencies updated
 
   const saveCurrentPlanToDb = async (planToSave: GenerateWeeklyMealPlanOutput | null) => {
     if (!planToSave || !profilePreferences) return;
@@ -105,13 +104,13 @@ export default function GeneratedMealPlan() {
         if (result.success) {
           toast({
             title: "Plan Cleared",
-            description: "The meal plan has been removed.",
+            description: "The meal plan has been removed from the database.",
           });
         } else {
           setError(result.error || "Failed to clear plan from database.");
           toast({
-            title: "Error",
-            description: result.error || "Could not remove the plan.",
+            title: "Error Clearing Plan",
+            description: result.error || "Could not remove the plan from the database.",
             variant: "destructive",
           });
         }
@@ -119,7 +118,7 @@ export default function GeneratedMealPlan() {
         const errorMessage = e.message || "An unexpected error occurred while clearing the plan.";
         setError(errorMessage);
         toast({
-          title: "Error",
+          title: "Clearing Error",
           description: errorMessage,
           variant: "destructive",
         });
@@ -147,7 +146,7 @@ export default function GeneratedMealPlan() {
     setMealPlan(updatedMealPlan);
     toast({
       title: "Recipe Deleted",
-      description: `A recipe for ${mealTypeKey} on ${day} has been removed.`,
+      description: `A recipe for ${mealTypeKey} on ${day} has been removed locally.`,
     });
     saveCurrentPlanToDb(updatedMealPlan);
   };
@@ -174,7 +173,7 @@ export default function GeneratedMealPlan() {
     setMealPlan(updatedMealPlan);
     toast({
       title: "Recipe Added",
-      description: `${newRecipe.recipeName} added for ${mealTypeKey} on ${day}.`,
+      description: `${newRecipe.recipeName} added locally for ${mealTypeKey} on ${day}.`,
     });
     saveCurrentPlanToDb(updatedMealPlan);
     setIsAddRecipeDialogOpen(false);
@@ -212,7 +211,7 @@ export default function GeneratedMealPlan() {
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
         <Button onClick={() => {
-          setError(null);
+          setError(null); // Allow user to dismiss error and try again (e.g. by generating)
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
           Dismiss
         </Button>
@@ -220,24 +219,26 @@ export default function GeneratedMealPlan() {
     );
   }
 
+  // This condition is met if loading is false, no error, and mealPlan is null or empty
   if (!mealPlan || mealPlan.weeklyMealPlan.length === 0) {
      return (
-        <div className="mt-12 text-center">
-            <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-4" />
-            <h2 className="text-2xl font-semibold text-muted-foreground mb-2">No Meal Plan Yet</h2>
-            <p className="text-muted-foreground">
-            Looks like you don&apos;t have a meal plan loaded.
+        <div className="mt-12 text-center py-10">
+            <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
+            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Yet!</h2>
+            <p className="text-lg text-muted-foreground mb-1">
+            It looks like you don&apos;t have a meal plan loaded.
             </p>
-            <p className="text-muted-foreground">
-            Click &quot;Generate Meal Plan&quot; in the header to create one!
+            <p className="text-lg text-muted-foreground mb-6">
+            Ready to start? Click the &quot;Generate Meal Plan&quot; button in the header.
             </p>
+            {/* The button to generate is in the Header, no need to repeat here unless UX dictates */}
         </div>
     );
   }
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
         <h2 className="text-2xl font-bold text-primary">Your Weekly Meal Plan</h2>
         <Button
             variant="outline"
@@ -247,7 +248,7 @@ export default function GeneratedMealPlan() {
             disabled={isLoading}
           >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-            {isLoading ? "Clearing..." : "Clear Plan"}
+            {isLoading ? "Clearing..." : "Clear Plan & Delete from DB"}
         </Button>
       </div>
       <div className="space-y-3">
@@ -275,3 +276,4 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
+

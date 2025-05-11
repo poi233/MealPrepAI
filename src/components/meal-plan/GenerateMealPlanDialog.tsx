@@ -68,12 +68,12 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
       form.reset({ dietaryPreferences: normalizedProfilePrefs });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, isOpen, form.reset]);
+  }, [profilePreferences, isOpen]); // form.reset removed from deps as per react-hook-form guidance
 
   async function onSubmit(values: MealPreferencesFormValues) {
     setIsLoading(true);
     setError(null);
-    setMealPlan(null); 
+    // setMealPlan(null); // Clear previous plan immediately if desired, or wait for new plan/error
 
     const currentNormalizedPrefs = normalizePreferences(values.dietaryPreferences);
     
@@ -86,50 +86,70 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
       });
     }
 
+    let planToSet: GenerateWeeklyMealPlanOutput | null = null;
+    let finalError: string | null = null;
+
     try {
-      const existingPlan = await getSavedMealPlanAction(currentNormalizedPrefs);
-      if (existingPlan && !("error" in existingPlan)) {
-        setMealPlan(existingPlan);
+      // Attempt to fetch existing plan
+      const existingPlanOutcome = await getSavedMealPlanAction(currentNormalizedPrefs);
+
+      if (existingPlanOutcome && !("error" in existingPlanOutcome)) {
+        planToSet = existingPlanOutcome;
         toast({
           title: "Meal Plan Loaded",
           description: "Found a saved meal plan for these preferences.",
         });
-        onClose();
-        setIsLoading(false);
-        return;
-      } else if (existingPlan && "error" in existingPlan && !existingPlan.error.toLowerCase().includes("not found")) {
-        setError(existingPlan.error);
-        toast({
-          title: "Error Loading Plan",
-          description: existingPlan.error,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
+      } else {
+        // This block executes if:
+        // 1. existingPlanOutcome is null (plan not found, no DB error from getSavedMealPlanAction)
+        // 2. existingPlanOutcome has an "error" property (DB error during fetch)
+
+        if (existingPlanOutcome && "error" in existingPlanOutcome) {
+          // This means getSavedMealPlanAction itself returned an error object (e.g., DB connection issue)
+          console.error("Error fetching saved meal plan from DB:", existingPlanOutcome.error);
+          toast({
+            title: "Could Not Load Saved Plan",
+            description: `${existingPlanOutcome.error}. Attempting to generate a new one.`,
+            variant: "default", // Using default, could be "warning" if available/desired
+          });
+          // Optionally set this error, but it might be overwritten by a generation error.
+          // setError(existingPlanOutcome.error); 
+        }
+        
+        // Proceed to generate a new plan
+        const generationResult = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
+
+        if ("error" in generationResult) {
+          finalError = generationResult.error;
+          toast({
+            title: "Error Generating Plan",
+            description: generationResult.error,
+            variant: "destructive",
+          });
+        } else {
+          planToSet = generationResult as GenerateWeeklyMealPlanOutput;
+          toast({
+            title: "Meal Plan Generated!",
+            description: "Your personalized 7-day meal plan is ready.",
+          });
+        }
+      }
+
+      if (planToSet) {
+        setMealPlan(planToSet);
+        onClose(); // Close dialog on successful load or generation
       }
       
-      const result = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
-
-      if ("error" in result) {
-        setError(result.error);
-        toast({
-          title: "Error Generating Plan",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else {
-        setMealPlan(result as GenerateWeeklyMealPlanOutput);
-        toast({
-          title: "Meal Plan Generated!",
-          description: "Your personalized 7-day meal plan is ready.",
-        });
-        onClose();
+      if (finalError) {
+        setError(finalError);
+        // If generation failed, dialog remains open for user to see error/retry.
       }
-    } catch (e: any) {
+
+    } catch (e: any) { // Catch unexpected errors from actions or logic within try block
       const errorMessage = e.message || "An unexpected error occurred.";
-      setError(errorMessage);
+      setError(errorMessage); // Set this error to context
       toast({
-        title: "Error",
+        title: "Operation Error",
         description: errorMessage,
         variant: "destructive",
       });
@@ -144,7 +164,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Generate New Meal Plan</DialogTitle>
+          <DialogTitle>Generate New MealPlan</DialogTitle>
           <DialogDescription>
             Enter your dietary preferences below. We&apos;ll use them to create a personalized 7-day meal plan.
           </DialogDescription>
@@ -180,7 +200,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
               </DialogClose>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isMealPlanLoading}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isMealPlanLoading ? "Generating..." : "Generate Plan"}
+                {isMealPlanLoading ? "Processing..." : "Generate Plan"}
               </Button>
             </DialogFooter>
           </form>
@@ -189,3 +209,4 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     </Dialog>
   );
 }
+
