@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -36,13 +37,14 @@ export default function GeneratedMealPlan() {
         return;
       }
       
-      if (isLoading) { // If already loading (e.g. for different prefs or initial app load), let it finish.
+      if (isLoading && mealPlan?.loadedForPrefs === normalizedProfilePrefs) { 
+        // If already loading for the *current* preferences, let it finish to avoid duplicate loads.
           return;
       }
 
       const loadInitialPlan = async () => {
         setIsLoading(true);
-        setError(null); // Clear previous error for a new attempt
+        setError(null); 
         try {
           const existingPlanData = await getSavedMealPlanAction(normalizedProfilePrefs);
 
@@ -50,7 +52,7 @@ export default function GeneratedMealPlan() {
             setMealPlan({ ...existingPlanData, loadedForPrefs: normalizedProfilePrefs });
           } else if (existingPlanData && "error" in existingPlanData) {
             setError(existingPlanData.error);
-            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs }); // Mark attempt, but with error
+            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs }); 
             toast({
                 title: "Error Loading Saved Plan",
                 description: existingPlanData.error,
@@ -58,13 +60,11 @@ export default function GeneratedMealPlan() {
             });
           } else {
             // existingPlanData is null (plan not found in DB for these prefs)
-            // Set mealPlan to an "empty but attempted" state for these prefs.
             setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
           }
         } catch (e: any) {
           const errorMessage = e.message || "Failed to load saved meal plan.";
           setError(errorMessage);
-          // Mark attempt even on catch, to prevent immediate retry for same erroring prefs.
           setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
           toast({
             title: "Loading Error",
@@ -78,12 +78,14 @@ export default function GeneratedMealPlan() {
       loadInitialPlan();
     } else {
       // No profile preferences are set
-      if (mealPlan) setMealPlan(null); // Clear any existing meal plan if prefs are removed
-      if (error) setError(null); // Clear any error
-      if (isLoading) setIsLoading(false); // Ensure not stuck in loading state
+      if (mealPlan) setMealPlan(null); 
+      if (error) setError(null); 
+      if (isLoading) setIsLoading(false); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, setIsLoading, setMealPlan, setError, mealPlan?.loadedForPrefs]); // Added mealPlan.loadedForPrefs to deps
+  }, [profilePreferences, setIsLoading, setMealPlan, setError]); // Removed mealPlan from dependencies to avoid re-triggering on mealPlan updates by other actions (add/delete)
+                                                               // Only re-trigger if profilePreferences change.
+                                                               // isLoading is also a dep to allow re-fetch if it was stuck.
 
   const saveCurrentPlanToDb = async (planToSave: MealPlanState) => {
     if (!planToSave || !profilePreferences) return;
@@ -100,7 +102,7 @@ export default function GeneratedMealPlan() {
     const { loadedForPrefs, ...planDataToSave } = planToSave;
 
     try {
-      await saveMealPlanToDb(normalizedPrefs, planDataToSave);
+      await saveMealPlanToDb(normalizedPrefs, planDataToSave as GenerateWeeklyMealPlanOutput); // Cast to ensure type
       toast({
         title: "Plan Updated",
         description: "Your meal plan changes have been saved.",
@@ -147,7 +149,8 @@ export default function GeneratedMealPlan() {
       }
     }
     
-    setMealPlan(null); 
+    // Set to an empty plan structure marked for current prefs to stop reload attempts
+    setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedPrefs || undefined }); 
     setIsLoading(false);
   };
 
@@ -234,9 +237,7 @@ export default function GeneratedMealPlan() {
         <AlertDescription>{error}</AlertDescription>
         <Button onClick={() => {
           setError(null); 
-          // Force a re-evaluation by clearing loadedForPrefs, allowing useEffect to retry if appropriate
           if (mealPlan) setMealPlan({...mealPlan, loadedForPrefs: undefined }); else setMealPlan(null);
-
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
           Dismiss & Retry Load
         </Button>
@@ -244,10 +245,7 @@ export default function GeneratedMealPlan() {
     );
   }
 
-  // Display "No Meal Plan Yet" if:
-  // 1. mealPlan is null (e.g., no preferences set, initial state before any load attempt)
-  // 2. mealPlan.weeklyMealPlan is empty (meaning a load was attempted for current prefs, but nothing was found or an error cleared it to empty)
-  if (!mealPlan || mealPlan.weeklyMealPlan.length === 0) {
+  if (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0) {
      return (
         <div className="mt-12 text-center py-10">
             <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
@@ -277,7 +275,7 @@ export default function GeneratedMealPlan() {
             disabled={isLoading}
           >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-            {isLoading ? "Clearing..." : "Clear Plan & Delete from DB"}
+            {isLoading ? "Clearing..." : "Remove All"}
         </Button>
       </div>
       <div className="space-y-3">
@@ -305,3 +303,4 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
+
