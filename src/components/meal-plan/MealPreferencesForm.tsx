@@ -150,44 +150,44 @@ export default function MealPreferencesForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-10">
-        <div className="flex items-center justify-center gap-3 mb-4">
-            <Lightbulb size={40} className="text-primary"/>
-            <h1 className="text-4xl font-bold text-primary">
+    <div className="max-w-xl mx-auto">
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-2 mb-3">
+            <Lightbulb size={32} className="text-primary"/>
+            <h1 className="text-3xl font-bold text-primary">
             AI Meal Planner
             </h1>
         </div>
-        <p className="text-lg text-muted-foreground">
+        <p className="text-md text-muted-foreground">
             Tell us your dietary preferences, and we&apos;ll whip up a personalized 7-day meal plan for you!
         </p>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 bg-card p-6 sm:p-8 rounded-lg shadow-xl">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-card p-4 sm:p-6 rounded-lg shadow-lg">
           <FormField
             control={form.control}
             name="dietaryPreferences"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xl font-semibold">Dietary Preferences</FormLabel>
+                <FormLabel className="text-lg font-semibold">Dietary Preferences</FormLabel>
                 <FormControl>
                   <Textarea
                     placeholder="e.g., vegetarian, low-carb, no nuts, high protein..."
-                    className="min-h-[120px] resize-y"
+                    className="min-h-[100px] resize-y text-sm"
                     {...field}
                     value={field.value ?? ""} // Ensure value is not undefined
                   />
                 </FormControl>
-                <FormDescription>
+                <FormDescription className="text-xs">
                   Be as specific as you like. Your preferences are saved to your profile.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6" disabled={isMealPlanLoading}>
-            <Sparkles className="mr-2 h-5 w-5" />
+          <Button type="submit" size="sm" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-base py-2 px-4" disabled={isMealPlanLoading}>
+            <Sparkles className="mr-2 h-4 w-4" />
             {isMealPlanLoading ? "Generating..." : "Generate Meal Plan"}
           </Button>
         </form>
