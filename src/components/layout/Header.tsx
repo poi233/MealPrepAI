@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UtensilsCrossed, Sparkles, ListFilter } from 'lucide-react';
 import GenerateMealPlanDialog from '@/components/meal-plan/GenerateMealPlanDialog';
 import { useUserProfile } from '@/contexts/UserProfileContext';
-import { getAllSavedMealPlanNamesAction } from '@/app/actions';
+import { usePlanList } from '@/contexts/PlanListContext'; // Add import
 import {
   Select,
   SelectContent,
@@ -21,33 +22,15 @@ import { normalizeStringInput } from '@/lib/utils';
 export default function Header() {
   const [isGeneratePlanDialogOpen, setIsGeneratePlanDialogOpen] = useState(false);
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
-  const [savedPlanNames, setSavedPlanNames] = useState<string[]>([]);
-  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const { savedPlanNames, isLoadingPlans, fetchPlanNames } = usePlanList(); // Use context
   const { toast } = useToast();
 
-  const fetchPlanNames = async () => {
-    setIsLoadingPlans(true);
-    const result = await getAllSavedMealPlanNamesAction();
-    if ("error" in result) {
-      toast({
-        title: "Error loading saved plan names",
-        description: result.error,
-        variant: "destructive",
-      });
-      setSavedPlanNames([]);
-    } else {
-      setSavedPlanNames(result);
-    }
-    setIsLoadingPlans(false);
-  };
-
-  useEffect(() => {
-    fetchPlanNames();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]); // Intentionally not re-fetching on activePlanName change here; dialog handles refresh
+  // The useEffect that previously called a local fetchPlanNames is removed.
+  // The PlanListProvider now handles the initial fetch.
+  // Subsequent fetches are triggered by onPlanGenerated or after deletion via context.
 
   const handlePlanChange = (newPlanName: string) => {
-    if (newPlanName === "---clear---") { // Special value to clear selection
+    if (newPlanName === "---clear---") { 
         setActivePlanName(null);
         toast({
             title: "Active Plan Cleared",
@@ -56,14 +39,14 @@ export default function Header() {
         return;
     }
     const normalizedNewPlan = normalizeStringInput(newPlanName);
-    setActivePlanName(normalizedNewPlan); // This updates context and persists to DB
+    setActivePlanName(normalizedNewPlan); 
     toast({
       title: "Plan Switched",
       description: `Loading meal plan: ${normalizedNewPlan}.`,
     });
   };
   
-  const selectValue = activePlanName || ""; // Ensure Select has a string value or empty for placeholder
+  const selectValue = activePlanName || ""; 
 
   return (
     <>
@@ -97,7 +80,6 @@ export default function Header() {
                             {name.length > 30 ? `${name.substring(0, 27)}...` : name}
                           </SelectItem>
                         ))}
-                        {/* Option to clear selection if a plan is active */}
                         {activePlanName && savedPlanNames.length > 0 && (
                             <SelectItem value="---clear---" className="text-xs sm:text-sm text-destructive/80">Clear Active Plan</SelectItem>
                         )}
@@ -120,10 +102,8 @@ export default function Header() {
       <GenerateMealPlanDialog
         isOpen={isGeneratePlanDialogOpen}
         onClose={() => setIsGeneratePlanDialogOpen(false)}
-        onPlanGenerated={(newlyGeneratedPlanName) => {
-          // Refresh saved plan names list
-          fetchPlanNames();
-          // setActivePlanName is already called within the dialog's onSubmit
+        onPlanGenerated={async (newlyGeneratedPlanName) => {
+          await fetchPlanNames(); // Call context's fetchPlanNames
         }}
       />
     </>
