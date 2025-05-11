@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +31,7 @@ import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
 import { normalizePreferences } from "@/lib/utils";
 import type { GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
+import type { MealPlanState } from "@/contexts/MealPlanContext";
 
 const mealPreferencesFormSchema = z.object({
   dietaryPreferences: z.string()
@@ -68,13 +68,12 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
       form.reset({ dietaryPreferences: normalizedProfilePrefs });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, isOpen]); // form.reset removed from deps as per react-hook-form guidance
+  }, [profilePreferences, isOpen]);
 
   async function onSubmit(values: MealPreferencesFormValues) {
     setIsLoading(true);
     setError(null);
-    // setMealPlan(null); // Clear previous plan immediately if desired, or wait for new plan/error
-
+    
     const currentNormalizedPrefs = normalizePreferences(values.dietaryPreferences);
     
     if (currentNormalizedPrefs !== normalizePreferences(profilePreferences)) {
@@ -90,7 +89,6 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     let finalError: string | null = null;
 
     try {
-      // Attempt to fetch existing plan
       const existingPlanOutcome = await getSavedMealPlanAction(currentNormalizedPrefs);
 
       if (existingPlanOutcome && !("error" in existingPlanOutcome)) {
@@ -100,23 +98,15 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
           description: "Found a saved meal plan for these preferences.",
         });
       } else {
-        // This block executes if:
-        // 1. existingPlanOutcome is null (plan not found, no DB error from getSavedMealPlanAction)
-        // 2. existingPlanOutcome has an "error" property (DB error during fetch)
-
         if (existingPlanOutcome && "error" in existingPlanOutcome) {
-          // This means getSavedMealPlanAction itself returned an error object (e.g., DB connection issue)
           console.error("Error fetching saved meal plan from DB:", existingPlanOutcome.error);
           toast({
             title: "Could Not Load Saved Plan",
             description: `${existingPlanOutcome.error}. Attempting to generate a new one.`,
-            variant: "default", // Using default, could be "warning" if available/desired
+            variant: "default",
           });
-          // Optionally set this error, but it might be overwritten by a generation error.
-          // setError(existingPlanOutcome.error); 
         }
         
-        // Proceed to generate a new plan
         const generationResult = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
 
         if ("error" in generationResult) {
@@ -136,18 +126,24 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
       }
 
       if (planToSet) {
-        setMealPlan(planToSet);
-        onClose(); // Close dialog on successful load or generation
+        // When setting the meal plan, include loadedForPrefs
+        setMealPlan({ ...planToSet, loadedForPrefs: currentNormalizedPrefs });
+        onClose(); 
       }
       
       if (finalError) {
         setError(finalError);
-        // If generation failed, dialog remains open for user to see error/retry.
+        // If generation failed after an attempt to load an existing plan also failed (or was skipped),
+        // ensure an empty plan state is set for these prefs to avoid reload loops on the main page.
+        if (!planToSet) {
+           setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs });
+        }
       }
 
-    } catch (e: any) { // Catch unexpected errors from actions or logic within try block
+    } catch (e: any) { 
       const errorMessage = e.message || "An unexpected error occurred.";
-      setError(errorMessage); // Set this error to context
+      setError(errorMessage); 
+      setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs }); // Mark attempt on error
       toast({
         title: "Operation Error",
         description: errorMessage,
@@ -209,4 +205,3 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     </Dialog>
   );
 }
-

@@ -4,9 +4,12 @@ import type React from 'react';
 import { createContext, useContext, useState } from 'react';
 import type { GenerateWeeklyMealPlanOutput } from '@/ai/flows/generate-weekly-meal-plan';
 
+// Add loadedForPrefs to track which preferences the current plan (or lack thereof) is for.
+export type MealPlanState = (GenerateWeeklyMealPlanOutput & { loadedForPrefs?: string }) | null;
+
 interface MealPlanContextType {
-  mealPlan: GenerateWeeklyMealPlanOutput | null;
-  setMealPlan: (plan: GenerateWeeklyMealPlanOutput | null) => void;
+  mealPlan: MealPlanState;
+  setMealPlan: (plan: MealPlanState) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   error: string | null;
@@ -16,7 +19,7 @@ interface MealPlanContextType {
 const MealPlanContext = createContext<MealPlanContextType | undefined>(undefined);
 
 export function MealPlanProvider({ children }: { children: React.ReactNode }) {
-  const [mealPlan, setMealPlan] = useState<GenerateWeeklyMealPlanOutput | null>(null);
+  const [mealPlan, setMealPlan] = useState<MealPlanState>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,6 +13,7 @@ import { deleteMealPlanAction, saveMealPlanToDb, getSavedMealPlanAction } from "
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 import { normalizePreferences } from "@/lib/utils";
+import type { MealPlanState } from "@/contexts/MealPlanContext";
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
@@ -28,30 +28,44 @@ export default function GeneratedMealPlan() {
   useEffect(() => {
     const normalizedProfilePrefs = normalizePreferences(profilePreferences);
 
-    // Only attempt to load if prefs exist, no plan is loaded, not currently loading, AND no existing error.
-    if (normalizedProfilePrefs && !mealPlan && !isLoading && !error) {
+    if (normalizedProfilePrefs) {
+      // Preferences are set
+      if (mealPlan?.loadedForPrefs === normalizedProfilePrefs && !isLoading) {
+        // Plan is already loaded for these exact preferences and not currently loading, so do nothing.
+        // Or, an attempt was made and it was empty, still loadedForPrefs matches.
+        return;
+      }
+      
+      if (isLoading) { // If already loading (e.g. for different prefs or initial app load), let it finish.
+          return;
+      }
+
       const loadInitialPlan = async () => {
         setIsLoading(true);
-        // setError(null); // Clear previous error before attempting to load
+        setError(null); // Clear previous error for a new attempt
         try {
-          const existingPlan = await getSavedMealPlanAction(normalizedProfilePrefs);
-          if (existingPlan && !("error" in existingPlan)) {
-            setMealPlan(existingPlan);
-          } else if (existingPlan && "error" in existingPlan) {
-            // Only set error if it's not a "not found" type error.
-            // getSavedMealPlanAction returns null for "not found", not an error object.
-            // So this branch primarily handles actual DB errors.
-            setError(existingPlan.error);
+          const existingPlanData = await getSavedMealPlanAction(normalizedProfilePrefs);
+
+          if (existingPlanData && !("error" in existingPlanData)) {
+            setMealPlan({ ...existingPlanData, loadedForPrefs: normalizedProfilePrefs });
+          } else if (existingPlanData && "error" in existingPlanData) {
+            setError(existingPlanData.error);
+            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs }); // Mark attempt, but with error
             toast({
                 title: "Error Loading Saved Plan",
-                description: existingPlan.error,
+                description: existingPlanData.error,
                 variant: "destructive",
             });
+          } else {
+            // existingPlanData is null (plan not found in DB for these prefs)
+            // Set mealPlan to an "empty but attempted" state for these prefs.
+            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
           }
-          // If existingPlan is null (not found), no action needed here, UI will show "No Meal Plan Yet"
         } catch (e: any) {
           const errorMessage = e.message || "Failed to load saved meal plan.";
           setError(errorMessage);
+          // Mark attempt even on catch, to prevent immediate retry for same erroring prefs.
+          setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
           toast({
             title: "Loading Error",
             description: errorMessage,
@@ -62,11 +76,16 @@ export default function GeneratedMealPlan() {
         }
       };
       loadInitialPlan();
+    } else {
+      // No profile preferences are set
+      if (mealPlan) setMealPlan(null); // Clear any existing meal plan if prefs are removed
+      if (error) setError(null); // Clear any error
+      if (isLoading) setIsLoading(false); // Ensure not stuck in loading state
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, mealPlan, isLoading, error]); // Dependencies updated
+  }, [profilePreferences, setIsLoading, setMealPlan, setError, mealPlan?.loadedForPrefs]); // Added mealPlan.loadedForPrefs to deps
 
-  const saveCurrentPlanToDb = async (planToSave: GenerateWeeklyMealPlanOutput | null) => {
+  const saveCurrentPlanToDb = async (planToSave: MealPlanState) => {
     if (!planToSave || !profilePreferences) return;
     const normalizedPrefs = normalizePreferences(profilePreferences);
     if (!normalizedPrefs) {
@@ -77,8 +96,11 @@ export default function GeneratedMealPlan() {
         });
         return;
     }
+    // Ensure we are saving only GenerateWeeklyMealPlanOutput, not the context state with loadedForPrefs
+    const { loadedForPrefs, ...planDataToSave } = planToSave;
+
     try {
-      await saveMealPlanToDb(normalizedPrefs, planToSave);
+      await saveMealPlanToDb(normalizedPrefs, planDataToSave);
       toast({
         title: "Plan Updated",
         description: "Your meal plan changes have been saved.",
@@ -142,7 +164,7 @@ export default function GeneratedMealPlan() {
       }
       return daily;
     });
-    const updatedMealPlan = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
+    const updatedMealPlan: MealPlanState = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
     setMealPlan(updatedMealPlan);
     toast({
       title: "Recipe Deleted",
@@ -169,7 +191,7 @@ export default function GeneratedMealPlan() {
       }
       return daily;
     });
-    const updatedMealPlan = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
+    const updatedMealPlan: MealPlanState = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
     setMealPlan(updatedMealPlan);
     toast({
       title: "Recipe Added",
@@ -211,27 +233,34 @@ export default function GeneratedMealPlan() {
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
         <Button onClick={() => {
-          setError(null); // Allow user to dismiss error and try again (e.g. by generating)
+          setError(null); 
+          // Force a re-evaluation by clearing loadedForPrefs, allowing useEffect to retry if appropriate
+          if (mealPlan) setMealPlan({...mealPlan, loadedForPrefs: undefined }); else setMealPlan(null);
+
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
-          Dismiss
+          Dismiss & Retry Load
         </Button>
       </Alert>
     );
   }
 
-  // This condition is met if loading is false, no error, and mealPlan is null or empty
+  // Display "No Meal Plan Yet" if:
+  // 1. mealPlan is null (e.g., no preferences set, initial state before any load attempt)
+  // 2. mealPlan.weeklyMealPlan is empty (meaning a load was attempted for current prefs, but nothing was found or an error cleared it to empty)
   if (!mealPlan || mealPlan.weeklyMealPlan.length === 0) {
      return (
         <div className="mt-12 text-center py-10">
             <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
             <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Yet!</h2>
             <p className="text-lg text-muted-foreground mb-1">
-            It looks like you don&apos;t have a meal plan loaded.
+            It looks like you don&apos;t have a meal plan loaded for the current preferences,
+            </p>
+            <p className="text-lg text-muted-foreground mb-1">
+            or the plan is empty.
             </p>
             <p className="text-lg text-muted-foreground mb-6">
             Ready to start? Click the &quot;Generate Meal Plan&quot; button in the header.
             </p>
-            {/* The button to generate is in the Header, no need to repeat here unless UX dictates */}
         </div>
     );
   }
@@ -276,4 +305,3 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
-
