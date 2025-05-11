@@ -1,3 +1,4 @@
+
 'use server';
 
 import { sql } from '@vercel/postgres';
@@ -63,6 +64,11 @@ export async function saveMealPlanToDb(
   await ensureMealPlansTableExists();
   try {
     // When saving, is_active is not directly set here. setActivePlanInDb handles that.
+    // If a plan with plan_name exists, it's updated. Otherwise, a new plan is inserted.
+    // The is_active status of the updated/inserted plan is NOT changed by this function.
+    // It defaults to FALSE on insert if not specified, or retains its value on update if not specified.
+    // The current ON CONFLICT only updates description and data, is_active would remain.
+    // This is fine, as setActivePlanInDb is the sole controller of is_active.
     await sql`
       INSERT INTO meal_plans (plan_name, plan_description, meal_plan_data, updated_at)
       VALUES (${planName}, ${planDescription}, ${JSON.stringify(mealPlanData)}::jsonb, NOW())
@@ -162,33 +168,44 @@ export async function getActiveMealPlanFromDb(): Promise<{ planName: string; pla
 
 export async function setActivePlanInDb(planName: string): Promise<void> {
   await ensureMealPlansTableExists();
-  if (!planName || planName.trim() === "") {
-    throw new Error("Plan name cannot be empty when setting active plan.");
-  }
+  // planName can be an empty string to signify clearing all active plans.
+  // A non-empty planName signifies setting that specific plan to active.
+
+  const effectivePlanName = planName.trim();
+
   try {
-    // Begin transaction
     await sql.query('BEGIN');
     
-    // Set all plans to inactive
+    // Always set all currently active plans to inactive
     await sql`UPDATE meal_plans SET is_active = FALSE WHERE is_active = TRUE;`;
     
-    // Set the specified plan to active
-    const result = await sql`
-      UPDATE meal_plans SET is_active = TRUE, updated_at = NOW()
-      WHERE plan_name = ${planName};
-    `;
+    // If a non-empty planName is provided, set that plan to active
+    if (effectivePlanName !== "") {
+      const result = await sql`
+        UPDATE meal_plans SET is_active = TRUE, updated_at = NOW()
+        WHERE plan_name = ${effectivePlanName};
+      `;
 
-    if (result.rowCount === 0) {
-      await sql.query('ROLLBACK'); // Rollback if the plan name doesn't exist
-      throw new Error(`Plan with name "${planName}" not found. Cannot set as active.`);
+      if (result.rowCount === 0) {
+        // If the plan to be activated doesn't exist, rollback.
+        // This also means if an empty plan name was effectively passed (e.g. "   "), nothing is set to active.
+        await sql.query('ROLLBACK');
+        throw new Error(`Plan with name "${effectivePlanName}" not found. Cannot set as active.`);
+      }
     }
+    // If effectivePlanName is "", all plans are now inactive.
     
-    // Commit transaction
     await sql.query('COMMIT');
-    console.log(`Successfully set plan "${planName}" as active.`);
+
+    if (effectivePlanName !== "") {
+      console.log(`Successfully set plan "${effectivePlanName}" as active.`);
+    } else {
+      console.log(`Successfully cleared all active plans.`);
+    }
+
   } catch (error) {
-    await sql.query('ROLLBACK'); // Rollback on any error
-    console.error(`Database error: Failed to set active plan status for "${planName}":`, error);
+    await sql.query('ROLLBACK'); // Rollback on any error during the transaction
+    console.error(`Database error: Failed to set active plan status for "${planName}" (effective: "${effectivePlanName}"):`, error);
     throw new Error(`Failed to update active plan status for "${planName}": ${(error as Error).message}`);
   }
 }

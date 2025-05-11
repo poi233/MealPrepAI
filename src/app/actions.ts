@@ -1,3 +1,4 @@
+
 "use server";
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
@@ -194,15 +195,14 @@ export async function getActiveMealPlanAction(): Promise<{ planName: string; pla
 }
 
 export async function setActivePlanAction(planName: string): Promise<{ success: boolean; error?: string }> {
-  if (!planName || planName.trim() === "") {
-    return { success: false, error: "Plan name cannot be empty." };
-  }
+  // Allow planName to be an empty string to signify clearing the active plan.
+  // The UserProfileContext ensures planName is either a normalized string or "".
   try {
     await setActivePlanInDb(planName);
     return { success: true };
   } catch (e) {
-    console.error(`Error setting active plan "${planName}":`, e);
-    const errorMessage = e instanceof Error ? e.message : `An unknown error occurred while setting active plan "${planName}".`;
+    console.error(`Error setting active plan status for "${planName}":`, e);
+    const errorMessage = e instanceof Error ? e.message : `An unknown error occurred while setting active plan status for "${planName}".`;
     return { success: false, error: errorMessage };
   }
 }
