@@ -24,13 +24,13 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
 
   const renderMealSlot = (mealTypeKey: MealTypeKey, mealTypeTitle: string, meals: Meal[] = []) => {
     return (
-      <div className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
+      <div key={mealTypeKey} className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
         <h4 className="font-medium text-sm text-center text-primary capitalize">{mealTypeTitle}</h4>
         {meals.length > 0 ? (
           <div className="space-y-1.5">
             {meals.map((meal, index) => (
               <MealItemCard
-                key={`${meal.recipeName}-${index}`} // Assuming recipeName + index is unique enough for keys
+                key={`${meal.recipeName}-${index}-${dailyPlan.day}-${mealTypeKey}`} 
                 mealType={mealTypeTitle}
                 meal={meal}
                 onDelete={() => onDeleteMeal(dailyPlan.day, mealTypeKey, index)}
@@ -45,9 +45,9 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
         )}
         <Button
           variant="outline"
-          size="xs" // Custom size or adjusted padding for smaller button
+          size="xs" 
           onClick={() => onAddMeal(dailyPlan.day, mealTypeKey)}
-          className="text-primary border-primary hover:bg-primary/10 w-full mt-auto py-1 text-xs"
+          className="text-primary border-primary hover:bg-primary/10 w-full mt-auto py-1 text-xs h-7 rounded-md px-2" 
         >
           <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
           Add {mealTypeTitle}
@@ -69,20 +69,10 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
           renderMealSlot(
             mealTypeInfo.key,
             mealTypeInfo.title,
-            dailyPlan[mealTypeInfo.key] || [] // Ensure meals array is not undefined
+            dailyPlan[mealTypeInfo.key] || [] 
           )
         )}
       </CardContent>
     </Card>
   );
 }
-
-// Ensure Button component accepts size="xs" or adjust styling as needed for smaller buttons
-// If 'xs' is not a standard size in your Button component, you might need to add it
-// or use className for specific padding/height.
-// For example, in Button component variants:
-// size: { default: "h-10 px-4 py-2", sm: "h-9 rounded-md px-3", xs: "h-7 rounded-md px-2 text-xs" }
-// Or use className="h-7 rounded-md px-2 text-xs" directly on the Button.
-// The current buttonVariants does not have 'xs'. Let's assume we use classNames for now or it's added.
-// I will use explicit classNames for the button size to be safe.
-// The component props for onDeleteMeal and onAddMeal were also updated.
