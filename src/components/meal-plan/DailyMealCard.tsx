@@ -12,7 +12,7 @@ type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 interface DailyMealCardProps {
   dailyPlan: DailyMealPlan;
   onDeleteMeal: (day: string, mealTypeKey: MealTypeKey, recipeIndex: number) => void;
-  onAddMeal: (day: string, mealTypeKey: MealTypeKey) => void;
+  onAddMeal: (day: string, mealTypeKey: MealTypeKey, mealTypeTitle: string) => void; // mealTypeTitle added
 }
 
 export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: DailyMealCardProps) {
@@ -24,7 +24,7 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
 
   const renderMealSlot = (mealTypeKey: MealTypeKey, mealTypeTitle: string, meals: Meal[] = []) => {
     return (
-      <div key={mealTypeKey} className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
+      <div key={`${dailyPlan.day}-${mealTypeKey}`} className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
         <h4 className="font-medium text-sm text-center text-primary capitalize">{mealTypeTitle}</h4>
         {meals.length > 0 ? (
           <div className="space-y-1.5">
@@ -34,7 +34,6 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
                 mealType={mealTypeTitle}
                 meal={meal}
                 onDelete={() => onDeleteMeal(dailyPlan.day, mealTypeKey, index)}
-                // onEdit prop can be added here if edit functionality is implemented
               />
             ))}
           </div>
@@ -46,7 +45,7 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
         <Button
           variant="outline"
           size="xs" 
-          onClick={() => onAddMeal(dailyPlan.day, mealTypeKey)}
+          onClick={() => onAddMeal(dailyPlan.day, mealTypeKey, mealTypeTitle)} // Pass mealTypeTitle
           className="text-primary border-primary hover:bg-primary/10 w-full mt-auto py-1 text-xs h-7 rounded-md px-2" 
         >
           <PlusCircle className="mr-1.5 h-3.5 w-3.5" />

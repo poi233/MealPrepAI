@@ -1,14 +1,16 @@
 
 "use client";
 
+import { useState } from "react";
 import { useMealPlan } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
+import AddRecipeDialog from "./AddRecipeDialog"; // Import the new dialog
 import { Button } from "@/components/ui/button";
-import { AlertCircle, RefreshCcw, Trash2, Save } from "lucide-react";
+import { AlertCircle, Trash2, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { deleteMealPlanAction, saveMealPlanToDb } from "@/app/actions"; // Added saveMealPlanToDb
+import { deleteMealPlanAction, saveMealPlanToDb } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 
@@ -18,6 +20,9 @@ export default function GeneratedMealPlan() {
   const { mealPlan, isLoading, error, setMealPlan, setError, setIsLoading } = useMealPlan();
   const { dietaryPreferences } = useUserProfile();
   const { toast } = useToast();
+
+  const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
+  const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
 
   const saveCurrentPlanToDb = async (planToSave: GenerateWeeklyMealPlanOutput | null) => {
     if (!planToSave || !dietaryPreferences) return;
@@ -94,20 +99,20 @@ export default function GeneratedMealPlan() {
     saveCurrentPlanToDb(updatedMealPlan);
   };
 
-  const handleAddMeal = (day: string, mealTypeKey: MealTypeKey) => {
-    if (!mealPlan) return;
+  const handleAddMealClick = (day: string, mealTypeKey: MealTypeKey, mealTypeTitle: string) => {
+    setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
+    setIsAddRecipeDialogOpen(true);
+  };
 
-    const mealTypeTitle = mealTypeKey.charAt(0).toUpperCase() + mealTypeKey.slice(1);
-    const placeholderMeal: Meal = {
-      recipeName: `New ${mealTypeTitle} Recipe`,
-      ingredients: ["Edit ingredients"],
-      instructions: "Add instructions here.",
-    };
+  const handleAddNewRecipeSubmit = (newRecipe: Meal) => {
+    if (!mealPlan || !addRecipeTarget) return;
+
+    const { day, mealTypeKey } = addRecipeTarget;
 
     const updatedWeeklyMealPlan = mealPlan.weeklyMealPlan.map(daily => {
       if (daily.day === day) {
         const currentMeals = daily[mealTypeKey] || [];
-        const updatedMeals = [...currentMeals, placeholderMeal];
+        const updatedMeals = [...currentMeals, newRecipe];
         return { ...daily, [mealTypeKey]: updatedMeals };
       }
       return daily;
@@ -115,13 +120,14 @@ export default function GeneratedMealPlan() {
     const updatedMealPlan = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
     setMealPlan(updatedMealPlan);
     toast({
-      title: "Recipe Slot Added",
-      description: `Placeholder added for ${mealTypeTitle} on ${day}. Save plan to persist.`,
+      title: "Recipe Added",
+      description: `${newRecipe.recipeName} added for ${mealTypeKey} on ${day}.`,
     });
-    // Note: Consider if adding a placeholder should immediately save or wait for explicit save action.
-    // For now, let's make it save immediately similar to delete.
     saveCurrentPlanToDb(updatedMealPlan);
+    setIsAddRecipeDialogOpen(false);
+    setAddRecipeTarget(null);
   };
+
 
   if (isLoading) {
     return (
@@ -163,9 +169,7 @@ export default function GeneratedMealPlan() {
   }
 
   if (!mealPlan || mealPlan.weeklyMealPlan.length === 0) {
-    // Don't show "No meal plan found" if preferences are not set yet,
-    // or if the form hasn't been submitted. Only if explicitly cleared or no plan for current prefs.
-    if (dietaryPreferences && !isLoading) { // Check if preferences exist and not loading
+    if (dietaryPreferences && !isLoading) {
       return (
         <div className="mt-8 text-center text-muted-foreground">
           <p>No meal plan generated yet or found for your current preferences.</p>
@@ -209,10 +213,22 @@ export default function GeneratedMealPlan() {
             key={dailyPlanItem.day} 
             dailyPlan={dailyPlanItem} 
             onDeleteMeal={handleDeleteMeal}
-            onAddMeal={handleAddMeal}
+            onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} // Updated prop
           />
         ))}
       </div>
+      {addRecipeTarget && (
+        <AddRecipeDialog
+          isOpen={isAddRecipeDialogOpen}
+          onClose={() => {
+            setIsAddRecipeDialogOpen(false);
+            setAddRecipeTarget(null);
+          }}
+          onSubmit={handleAddNewRecipeSubmit}
+          mealTypeTitle={addRecipeTarget.mealTypeTitle}
+          day={addRecipeTarget.day}
+        />
+      )}
     </div>
   );
 }
