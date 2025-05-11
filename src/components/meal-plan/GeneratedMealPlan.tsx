@@ -17,64 +17,65 @@ import {
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import { normalizeStringInput } from "@/lib/utils";
+// import { normalizeStringInput } from "@/lib/utils"; // Not used here
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
 export default function GeneratedMealPlan() {
-  const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError: setMealPlanError, setIsLoading: setMealPlanLoading } = useMealPlan();
+  const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError, setIsLoading: setMealPlanLoading } = useMealPlan();
   const { activePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
   
-  // Combined loading state
   const isLoading = isMealPlanContextLoading || isProfileLoading;
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
     setMealPlanLoading(true);
-    setMealPlanError(null);
+    setError(null);
     let planDataToSet: MealPlanData | null = null;
 
     if (planNameToLoad) {
       const result = await getSavedMealPlanByNameAction(planNameToLoad);
-      if (result && !("error" in result)) {
-        planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
+      if (result && !("error" in result)) { // result is either plan data or null (if not found by name)
+        if (result) { // if result is not null (i.e., plan found)
+            planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
+        }
+        // if result is null (plan not found by name), planDataToSet remains null
       } else if (result && "error" in result) {
-        console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`);
-        // Do not set mealPlanError here to allow showing "No plan" message
-        // setMealPlanError(result.error); 
+        // Error retrieving plan, e.g., DB issue. Do not log to console as per user request.
+        // console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`); 
+        // If there's an error from the action, planDataToSet remains null. UI will show "No plan".
       }
+      // If planNameToLoad is null or plan not found or error, planDataToSet will be null
     } else { // No active plan name, try to load the one marked active in DB
       const activePlanResult = await getActiveMealPlanAction();
-      if (activePlanResult && !("error" in activePlanResult)) {
-          planDataToSet = { 
-            weeklyMealPlan: activePlanResult.mealPlanData.weeklyMealPlan, 
-            planDescription: activePlanResult.planDescription 
-          };
-          // Optionally update activePlanName in context if it was out of sync,
-          // though UserProfileContext should be the source of truth for activePlanName.
-          // If activePlanResult.planName differs from planNameToLoad (which is null here),
-          // it means UserProfileContext might not have an active plan name set yet.
-          // This is handled by UserProfileContext's initialization.
+      if (activePlanResult && !("error" in activePlanResult)) { // activePlanResult is plan data or null
+          if (activePlanResult) { // if activePlanResult is not null
+            planDataToSet = { 
+                weeklyMealPlan: activePlanResult.mealPlanData.weeklyMealPlan, 
+                planDescription: activePlanResult.planDescription 
+            };
+          }
+          // if activePlanResult is null, planDataToSet remains null
       } else if (activePlanResult && "error" in activePlanResult) {
-        console.error(`Error retrieving active plan: ${activePlanResult.error}.`);
-        // setMealPlanError(activePlanResult.error);
+        // Error retrieving active plan. Do not log to console.
+        // console.error(`Error retrieving active plan: ${activePlanResult.error}.`);
+        // If there's an error from the action, planDataToSet remains null. UI will show "No plan".
       }
     }
     
-    setMealPlan(planDataToSet); // Set to null if no plan found or error (error handled by mealPlanError state)
+    setMealPlan(planDataToSet);
     setMealPlanLoading(false);
-  }, [setMealPlan, setMealPlanError, setMealPlanLoading]);
+  }, [setMealPlan, setError, setMealPlanLoading]);
 
 
   useEffect(() => {
-    if (!isProfileLoading) { // Only load once profile (and activePlanName) is resolved
+    if (!isProfileLoading) { 
         loadPlan(activePlanName);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlanName, isProfileLoading]); // Removed loadPlan from deps to avoid re-triggering on its own recreation.
+  }, [activePlanName, isProfileLoading, loadPlan]);
 
   const saveCurrentPlanToDb = async (updatedMealPlanData: GenerateWeeklyMealPlanOutput) => {
     if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
@@ -93,7 +94,7 @@ export default function GeneratedMealPlan() {
         description: "Your meal plan changes have been saved.",
       });
     } catch (dbError: any) {
-      console.error("Failed to save meal plan to DB:", dbError);
+      console.error("Failed to save meal plan to DB:", dbError); // Keep this console.error for explicit save actions
       toast({
         title: "Database Error",
         description: dbError.message || "Could not save changes to the database.",
@@ -108,7 +109,7 @@ export default function GeneratedMealPlan() {
         return;
     }
     setMealPlanLoading(true);
-    setMealPlanError(null);
+    setError(null);
     
     try {
       const result = await deleteMealPlanByNameAction(activePlanName);
@@ -117,12 +118,9 @@ export default function GeneratedMealPlan() {
           title: "Plan Removed",
           description: `The meal plan "${activePlanName}" has been removed.`,
         });
-        setMealPlan(null); // Clear from context
-        // activePlanName in UserProfileContext will be cleared by header's select if user explicitly clears,
-        // or if this was the last plan, it might remain until another is selected/generated.
-        // Potentially call setActivePlanName(null) here if desired.
+        setMealPlan(null); 
       } else {
-        setMealPlanError(result.error || "Failed to remove plan from database.");
+        setError(result.error || "Failed to remove plan from database.");
         toast({
           title: "Error Removing Plan",
           description: result.error || "Could not remove the plan from the database.",
@@ -131,7 +129,7 @@ export default function GeneratedMealPlan() {
       }
     } catch (e: any) {
       const errorMessage = e.message || "An unexpected error occurred while removing the plan.";
-      setMealPlanError(errorMessage);
+      setError(errorMessage);
       toast({
         title: "Removing Error",
         description: errorMessage,
@@ -160,7 +158,7 @@ export default function GeneratedMealPlan() {
     setMealPlan(newMealPlanState);
     toast({
       title: "Recipe Deleted",
-      description: `A recipe for ${mealTypeKey} on ${day} has been removed locally.`,
+      description: `A recipe for ${mealTypeKey} on ${day} has been removed locally. Saving...`,
     });
     saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
   };
@@ -188,7 +186,7 @@ export default function GeneratedMealPlan() {
     setMealPlan(newMealPlanState);
     toast({
       title: "Recipe Added",
-      description: `${newRecipe.recipeName} added locally for ${mealTypeKey} on ${day}.`,
+      description: `${newRecipe.recipeName} added locally for ${mealTypeKey} on ${day}. Saving...`,
     });
     saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
     setIsAddRecipeDialogOpen(false);
@@ -219,15 +217,15 @@ export default function GeneratedMealPlan() {
     );
   }
 
-  if (mealPlanError && !mealPlan?.weeklyMealPlan?.length) { // Show error only if there's no plan to display
+  if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
     return (
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-5 w-5" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{mealPlanError}</AlertDescription>
         <Button onClick={() => {
-          setMealPlanError(null); 
-          loadPlan(activePlanName); // Retry loading
+          setError(null); 
+          loadPlan(activePlanName); 
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
           Retry Load
         </Button>
