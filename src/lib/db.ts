@@ -114,3 +114,20 @@ export async function deleteMealPlanFromDb(dietaryPreferences: string): Promise<
     throw new Error("Failed to delete meal plan from the database.");
   }
 }
+
+/**
+ * Retrieves all unique dietary preferences strings from the meal_plans table.
+ * @returns A promise that resolves to an array of unique dietary preference strings.
+ */
+export async function getAllMealPlanPreferencesFromDb(): Promise<string[]> {
+  await ensureMealPlansTableExists();
+  try {
+    const { rows } = await sql`
+      SELECT DISTINCT dietary_preferences FROM meal_plans ORDER BY dietary_preferences ASC;
+    `;
+    return rows.map(row => row.dietary_preferences as string);
+  } catch (error) {
+    console.error("Database error: Failed to retrieve all meal plan preferences:", error);
+    throw new Error("Failed to retrieve all meal plan preferences from the database.");
+  }
+}

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,7 +32,7 @@ import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
 import { normalizePreferences } from "@/lib/utils";
 import type { GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import type { MealPlanState } from "@/contexts/MealPlanContext";
+
 
 const mealPreferencesFormSchema = z.object({
   dietaryPreferences: z.string()
@@ -48,9 +49,10 @@ type MealPreferencesFormValues = z.infer<typeof mealPreferencesFormSchema>;
 interface GenerateMealPlanDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onPlanGenerated?: (newlyGeneratedPreferences: string) => void; 
 }
 
-export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMealPlanDialogProps) {
+export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerated }: GenerateMealPlanDialogProps) {
   const { toast } = useToast();
   const { dietaryPreferences: profilePreferences, setDietaryPreferences: setProfilePreferences } = useUserProfile();
   const { setMealPlan, setIsLoading, setError, isLoading: isMealPlanLoading } = useMealPlan();
@@ -87,12 +89,14 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
 
     let planToSet: GenerateWeeklyMealPlanOutput | null = null;
     let finalError: string | null = null;
+    let planFetchedFromDb = false;
 
     try {
       const existingPlanOutcome = await getSavedMealPlanAction(currentNormalizedPrefs);
 
       if (existingPlanOutcome && !("error" in existingPlanOutcome)) {
         planToSet = existingPlanOutcome;
+        planFetchedFromDb = true;
         toast({
           title: "Meal Plan Loaded",
           description: "Found a saved meal plan for these preferences.",
@@ -100,11 +104,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
       } else {
         if (existingPlanOutcome && "error" in existingPlanOutcome) {
           console.error("Error fetching saved meal plan from DB:", existingPlanOutcome.error);
-          toast({
-            title: "Could Not Load Saved Plan",
-            description: `${existingPlanOutcome.error}. Attempting to generate a new one.`,
-            variant: "default",
-          });
+          // Do not toast here yet, only if generation also fails
         }
         
         const generationResult = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
@@ -122,19 +122,19 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
             title: "Meal Plan Generated!",
             description: "Your personalized 7-day meal plan is ready.",
           });
+          if (onPlanGenerated) {
+            onPlanGenerated(currentNormalizedPrefs);
+          }
         }
       }
 
       if (planToSet) {
-        // When setting the meal plan, include loadedForPrefs
         setMealPlan({ ...planToSet, loadedForPrefs: currentNormalizedPrefs });
         onClose(); 
       }
       
       if (finalError) {
         setError(finalError);
-        // If generation failed after an attempt to load an existing plan also failed (or was skipped),
-        // ensure an empty plan state is set for these prefs to avoid reload loops on the main page.
         if (!planToSet) {
            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs });
         }
@@ -143,7 +143,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     } catch (e: any) { 
       const errorMessage = e.message || "An unexpected error occurred.";
       setError(errorMessage); 
-      setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs }); // Mark attempt on error
+      setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs });
       toast({
         title: "Operation Error",
         description: errorMessage,
@@ -160,7 +160,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Generate New MealPlan</DialogTitle>
+          <DialogTitle>Generate New Meal Plan</DialogTitle>
           <DialogDescription>
             Enter your dietary preferences below. We&apos;ll use them to create a personalized 7-day meal plan.
           </DialogDescription>
@@ -183,6 +183,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose }: GenerateMeal
                   </FormControl>
                   <FormDescription className="text-xs">
                     These preferences will also update your profile.
+                    Leave blank to use default/no specific preferences for generation.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

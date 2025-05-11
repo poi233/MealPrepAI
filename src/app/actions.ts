@@ -3,7 +3,7 @@
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
-import { saveMealPlanToDb as saveMealPlanToDbInternal, getMealPlanByPreferencesFromDb, deleteMealPlanFromDb } from "@/lib/db";
+import { saveMealPlanToDb as saveMealPlanToDbInternal, getMealPlanByPreferencesFromDb, deleteMealPlanFromDb, getAllMealPlanPreferencesFromDb } from "@/lib/db";
 
 export async function generateMealPlanAction(
   input: GenerateWeeklyMealPlanInput
@@ -110,6 +110,17 @@ export async function generateRecipeDetailsAction(
   } catch (e) {
     console.error("Error generating recipe details:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating recipe details.";
+    return { error: errorMessage };
+  }
+}
+
+export async function getAllSavedMealPlanPreferencesAction(): Promise<string[] | { error: string }> {
+  try {
+    const preferences = await getAllMealPlanPreferencesFromDb();
+    return preferences;
+  } catch (e) {
+    console.error("Error fetching all saved meal plan preferences:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching preferences.";
     return { error: errorMessage };
   }
 }
