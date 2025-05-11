@@ -2,6 +2,7 @@
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
+import { suggestRecipe, type SuggestRecipeInput, type SuggestRecipeOutput } from "@/ai/flows/suggest-recipe";
 import { 
   saveMealPlanToDb as saveMealPlanToDbInternal, 
   getMealPlanByNameFromDb,
@@ -140,6 +141,35 @@ export async function generateRecipeDetailsAction(
     return { error: errorMessage };
   }
 }
+
+export async function suggestRecipeAction(
+  input: SuggestRecipeInput
+): Promise<SuggestRecipeOutput | { error: string }> {
+  try {
+    if (!input.day || input.day.trim() === "") {
+      return { error: "Day cannot be empty for recipe suggestion." };
+    }
+    if (!input.mealType || input.mealType.trim() === "") {
+      return { error: "Meal type cannot be empty for recipe suggestion." };
+    }
+    if (!input.planDescription || input.planDescription.trim() === "") {
+      return { error: "Plan description cannot be empty for recipe suggestion." };
+    }
+    const result = await suggestRecipe(input);
+     if (!result || !result.recipeName || !result.ingredients || !result.instructions) {
+      if (result && (result as any).error) {
+        return { error: `AI Error: ${(result as any).error}` };
+      }
+      return { error: "Failed to suggest a recipe. The AI returned an unexpected result." };
+    }
+    return result;
+  } catch (e) {
+    console.error("Error suggesting recipe:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while suggesting a recipe.";
+    return { error: errorMessage };
+  }
+}
+
 
 export async function getAllSavedMealPlanNamesAction(): Promise<string[] | { error: string }> {
   try {

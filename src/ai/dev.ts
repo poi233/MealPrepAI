@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/generate-weekly-meal-plan.ts';
 import '@/ai/flows/generate-recipe-details.ts';
+import '@/ai/flows/suggest-recipe.ts';

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -32,25 +31,24 @@ export default function GeneratedMealPlan() {
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
     setMealPlanLoading(true);
-    setError(null); // Clear previous errors
+    setError(null); 
     let planDataToSet: MealPlanData | null = null;
 
-    if (planNameToLoad) { // If UserProfileContext.activePlanName is set
+    if (planNameToLoad) { 
       const result = await getSavedMealPlanByNameAction(planNameToLoad);
       if (result && !("error" in result)) { 
-        if (result) { // Plan found by name
+        if (result) { 
             planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
-        } else { // Plan by name not found (result is null from action)
+        } else { 
             planDataToSet = null;
         }
-      } else if (result && "error" in result) { // Error occurred fetching plan by name
-        // console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`); // User requested no console errors on load failure
-        planDataToSet = null; // On error, ensure no plan is shown
-      } else { // Catch other unexpected non-error, non-data cases for getSavedMealPlanByNameAction
+      } else if (result && "error" in result) { 
+        // User requested no console errors on load failure. Error will be handled by UI.
+        planDataToSet = null; 
+      } else { 
         planDataToSet = null;
       }
-    } else { // If UserProfileContext.activePlanName is null
-      // Do not attempt to load a DB-active plan. User has no active plan selected.
+    } else { 
       planDataToSet = null;
     }
     
@@ -69,7 +67,7 @@ export default function GeneratedMealPlan() {
     if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
         toast({
             title: "Cannot Save Plan",
-            description: "Active plan name or description is missing.",
+            description: "Active plan name or description is missing. Cannot save changes.",
             variant: "destructive",
         });
         return;
@@ -79,7 +77,7 @@ export default function GeneratedMealPlan() {
       await saveMealPlanToDb(activePlanName, mealPlan.planDescription, updatedMealPlanData);
       toast({
         title: "Plan Updated",
-        description: "Your meal plan changes have been saved.",
+        description: "Your meal plan changes have been saved to the database.",
       });
     } catch (dbError: any) {
       console.error("Failed to save meal plan to DB:", dbError); 
@@ -106,7 +104,7 @@ export default function GeneratedMealPlan() {
           title: "Plan Removed",
           description: `The meal plan "${activePlanName}" has been removed.`,
         });
-        setMealPlan(null); 
+        setMealPlan(null); // Clear plan from context
       } else {
         setError(result.error || "Failed to remove plan from database.");
         toast({
@@ -152,6 +150,14 @@ export default function GeneratedMealPlan() {
   };
 
   const handleAddMealClick = (day: string, mealTypeKey: MealTypeKey, mealTypeTitle: string) => {
+    if (!mealPlan || mealPlan.planDescription === undefined) {
+      toast({
+        title: "Cannot Add Recipe",
+        description: "Plan description is missing. AI suggestions may not work correctly.",
+        variant: "warning",
+      });
+      // Allow opening dialog anyway, but AI Suggest might be disabled or warn
+    }
     setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
     setIsAddRecipeDialogOpen(true);
   };
@@ -163,7 +169,7 @@ export default function GeneratedMealPlan() {
 
     const updatedWeeklyMealPlan = mealPlan.weeklyMealPlan.map(daily => {
       if (daily.day === day) {
-        const currentMeals = daily[mealTypeKey] || [];
+        const currentMeals = daily[mealTypeKey] || []; // Ensure currentMeals is an array
         const updatedMeals = [...currentMeals, newRecipe];
         return { ...daily, [mealTypeKey]: updatedMeals };
       }
@@ -205,8 +211,6 @@ export default function GeneratedMealPlan() {
     );
   }
 
-  // Display error message only if an error string is present AND there's no meal plan data to show.
-  // This prevents showing an error if a plan (even empty) is successfully loaded/set.
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
     return (
       <Alert variant="destructive" className="mt-6">
@@ -227,11 +231,11 @@ export default function GeneratedMealPlan() {
      return (
         <div className="mt-12 text-center py-10">
             <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Loaded!</h2>
+            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
             <p className="text-lg text-muted-foreground mb-6">
-            {activePlanName ? `The plan "${activePlanName}" is empty or could not be loaded.` : "No active meal plan selected."}
+            {activePlanName ? `The plan "${activePlanName}" might be empty or encountered an issue.` : "No active meal plan selected."}
             <br/>
-            Please generate a new meal plan or select an existing one from the header.
+            Please generate a new meal plan or select an existing one using the options in the header.
             </p>
         </div>
     );
@@ -241,7 +245,7 @@ export default function GeneratedMealPlan() {
     <div className="mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
         <h2 className="text-2xl font-bold text-primary">
-          {activePlanName ? `Plan: ${activePlanName}` : "Your Weekly Meal Plan"}
+          {activePlanName ? `Active Plan: ${activePlanName}` : "Your Weekly Meal Plan"}
         </h2>
         <Button
             variant="outline"
@@ -264,7 +268,7 @@ export default function GeneratedMealPlan() {
           />
         ))}
       </div>
-      {addRecipeTarget && (
+      {addRecipeTarget && mealPlan && ( // Ensure mealPlan and thus planDescription is available
         <AddRecipeDialog
           isOpen={isAddRecipeDialogOpen}
           onClose={() => {
@@ -274,9 +278,9 @@ export default function GeneratedMealPlan() {
           onSubmit={handleAddNewRecipeSubmit}
           mealTypeTitle={addRecipeTarget.mealTypeTitle}
           day={addRecipeTarget.day}
+          planDescription={mealPlan.planDescription || ""} // Pass planDescription
         />
       )}
     </div>
   );
 }
-

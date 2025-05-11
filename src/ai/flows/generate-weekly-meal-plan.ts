@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -12,6 +13,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { MealSchema, type Meal } from '@/ai/schemas/meal'; // Import from shared file
+
+export type { Meal }; // Re-export Meal type for convenience
 
 const GenerateWeeklyMealPlanInputSchema = z.object({
   planDescription: z
@@ -24,12 +28,7 @@ export type GenerateWeeklyMealPlanInput = z.infer<
   typeof GenerateWeeklyMealPlanInputSchema
 >;
 
-const MealSchema = z.object({
-  recipeName: z.string().describe('Name of the recipe (e.g., "Avocado Toast", "Grilled Chicken Salad")'),
-  ingredients: z.array(z.string()).describe('List of ingredients for the recipe'),
-  instructions: z.string().describe('Instructions to prepare the meal'),
-});
-export type Meal = z.infer<typeof MealSchema>;
+// MealSchema is now imported. No local definition or export of MealSchema object.
 
 const DailyMealPlanSchema = z.object({
   day: z.string().describe('Day of the week (e.g., Monday, Tuesday)'),
@@ -120,7 +119,6 @@ const generateWeeklyMealPlanFlow = ai.defineFlow(
     
     if (!processedOutput || !processedOutput.weeklyMealPlan || processedOutput.weeklyMealPlan.length !== 7) {
         console.warn("AI generated an invalid or incomplete weekly meal plan structure.", processedOutput);
-        // throw new Error('AI failed to generate a valid 7-day meal plan. The structure was incorrect.');
         // Fallback to a default empty structure if the AI fails significantly, rather than throwing.
         // This allows the UI to show "empty" rather than a hard error if the AI response is malformed.
          return {
@@ -136,3 +134,4 @@ const generateWeeklyMealPlanFlow = ai.defineFlow(
     return processedOutput!;
   }
 );
+

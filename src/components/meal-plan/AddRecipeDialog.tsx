@@ -1,9 +1,8 @@
-
 "use client";
 
 import type React from 'react';
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -28,9 +27,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Meal } from "@/ai/flows/generate-weekly-meal-plan";
-import { generateRecipeDetailsAction } from "@/app/actions";
+import { generateRecipeDetailsAction, suggestRecipeAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Wand2 } from "lucide-react";
 
 const addRecipeFormSchema = z.object({
   recipeName: z.string().min(1, "Recipe name is required."),
@@ -46,6 +45,7 @@ interface AddRecipeDialogProps {
   onSubmit: (newRecipe: Meal) => void;
   mealTypeTitle: string;
   day: string;
+  planDescription: string; // Added for AI Suggestion context
 }
 
 export default function AddRecipeDialog({
@@ -53,10 +53,12 @@ export default function AddRecipeDialog({
   onClose,
   onSubmit,
   mealTypeTitle,
-  day
+  day,
+  planDescription,
 }: AddRecipeDialogProps) {
   const { toast } = useToast();
   const [isGeneratingDetails, setIsGeneratingDetails] = useState(false);
+  const [isSuggestingRecipe, setIsSuggestingRecipe] = useState(false);
 
   const form = useForm<AddRecipeFormValues>({
     resolver: zodResolver(addRecipeFormSchema),
@@ -83,7 +85,7 @@ export default function AddRecipeDialog({
     if (!recipeName || recipeName.trim() === "") {
       toast({
         title: "Missing Recipe Name",
-        description: "Please enter a recipe name first.",
+        description: "Please enter a recipe name first to fill its details.",
         variant: "destructive",
       });
       return;
@@ -94,7 +96,7 @@ export default function AddRecipeDialog({
       const result = await generateRecipeDetailsAction({ recipeName });
       if ("error" in result) {
         toast({
-          title: "AI Generation Error",
+          title: "AI Detail Generation Error",
           description: result.error,
           variant: "destructive",
         });
@@ -103,7 +105,7 @@ export default function AddRecipeDialog({
         form.setValue("instructions", result.instructions);
         toast({
           title: "Recipe Details Generated",
-          description: "Ingredients and instructions have been filled in.",
+          description: "Ingredients and instructions have been filled in for the recipe name.",
         });
       }
     } catch (error: any) {
@@ -117,15 +119,55 @@ export default function AddRecipeDialog({
     }
   };
 
+  const handleSuggestRecipe = async () => {
+    if (!planDescription) {
+       toast({
+        title: "Missing Plan Context",
+        description: "Cannot suggest a recipe without an active meal plan description.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSuggestingRecipe(true);
+    form.reset(); // Clear form before suggesting
+    try {
+      const result = await suggestRecipeAction({ day, mealType: mealTypeTitle, planDescription });
+      if ("error" in result) {
+        toast({
+          title: "AI Suggestion Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        form.setValue("recipeName", result.recipeName);
+        form.setValue("ingredients", result.ingredients.join("\n"));
+        form.setValue("instructions", result.instructions);
+        toast({
+          title: "Recipe Suggested",
+          description: `AI has suggested "${result.recipeName}" and filled in the details.`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to suggest a recipe.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSuggestingRecipe(false);
+    }
+  };
+
+
   if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { form.reset(); onClose();} }}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px]"> {/* Slightly wider for new button */}
         <DialogHeader>
           <DialogTitle>Add New Recipe</DialogTitle>
           <DialogDescription>
-            Enter the details for your new {mealTypeTitle.toLowerCase()} recipe for {day}.
+            Manually enter details, or let AI suggest a recipe or fill details for a specific recipe name for {day}'s {mealTypeTitle.toLowerCase()}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -136,30 +178,46 @@ export default function AddRecipeDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Recipe Name</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <FormControl>
-                      <Input placeholder="e.g., Spicy Chicken Stir-fry" {...field} />
-                    </FormControl>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateDetails}
-                      disabled={isGeneratingDetails || !form.watch("recipeName")}
-                      className="text-xs"
-                    >
-                      {isGeneratingDetails ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      AI Fill
-                    </Button>
-                  </div>
+                  <FormControl>
+                    <Input placeholder="e.g., Spicy Chicken Stir-fry" {...field} disabled={isSuggestingRecipe}/>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            
+            <div className="flex flex-col sm:flex-row gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSuggestRecipe}
+                disabled={isSuggestingRecipe || isGeneratingDetails || !planDescription}
+                className="text-xs w-full sm:w-auto"
+              >
+                {isSuggestingRecipe ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                AI Suggest Recipe
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateDetails}
+                disabled={isGeneratingDetails || isSuggestingRecipe || !form.watch("recipeName")}
+                className="text-xs w-full sm:w-auto"
+              >
+                {isGeneratingDetails ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 mr-1" />
+                )}
+                AI Fill Details
+              </Button>
+            </div>
             
             <FormField
               control={form.control}
@@ -173,6 +231,7 @@ export default function AddRecipeDialog({
                       placeholder="Chicken breast\nSoy sauce\nBroccoli florets..."
                       className="min-h-[100px]"
                       {...field}
+                      disabled={isSuggestingRecipe}
                     />
                   </FormControl>
                   <FormMessage />
@@ -190,6 +249,7 @@ export default function AddRecipeDialog({
                       placeholder="1. Cut chicken into cubes.\n2. Marinate with soy sauce..."
                       className="min-h-[120px]"
                       {...field}
+                      disabled={isSuggestingRecipe}
                     />
                   </FormControl>
                   <FormMessage />
@@ -202,7 +262,7 @@ export default function AddRecipeDialog({
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={isGeneratingDetails}>Add Recipe</Button>
+              <Button type="submit" disabled={isGeneratingDetails || isSuggestingRecipe}>Add Recipe</Button>
             </DialogFooter>
           </form>
         </Form>
