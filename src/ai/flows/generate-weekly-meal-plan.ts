@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -25,19 +24,20 @@ export type GenerateWeeklyMealPlanInput = z.infer<
   typeof GenerateWeeklyMealPlanInputSchema
 >;
 
+// Updated MealSchema: Removed redundant 'mealName'. 'recipeName' is for the dish.
 const MealSchema = z.object({
-  mealName: z.string().describe('Name of the meal (e.g., breakfast, lunch, dinner)'),
-  recipeName: z.string().describe('Name of the recipe for this meal'),
+  recipeName: z.string().describe('Name of the recipe (e.g., "Avocado Toast", "Grilled Chicken Salad")'),
   ingredients: z.array(z.string()).describe('List of ingredients for the recipe'),
   instructions: z.string().describe('Instructions to prepare the meal'),
 });
 export type Meal = z.infer<typeof MealSchema>;
 
+// Updated DailyMealPlanSchema: breakfast, lunch, dinner are arrays of MealSchema.
 const DailyMealPlanSchema = z.object({
   day: z.string().describe('Day of the week (e.g., Monday, Tuesday)'),
-  breakfast: MealSchema.nullable().describe('Breakfast recipe for the day. Can be null if not applicable or deleted.'),
-  lunch: MealSchema.nullable().describe('Lunch recipe for the day. Can be null if not applicable or deleted.'),
-  dinner: MealSchema.nullable().describe('Dinner recipe for the day. Can be null if not applicable or deleted.'),
+  breakfast: z.array(MealSchema).describe('List of breakfast recipes. Empty array if none planned.'),
+  lunch: z.array(MealSchema).describe('List of lunch recipes. Empty array if none planned.'),
+  dinner: z.array(MealSchema).describe('List of dinner recipes. Empty array if none planned.'),
 });
 export type DailyMealPlan = z.infer<typeof DailyMealPlanSchema>;
 
@@ -54,19 +54,43 @@ export async function generateWeeklyMealPlan(
   return generateWeeklyMealPlanFlow(input);
 }
 
+// Updated prompt: More explicit JSON structure guidance, removed {{{outputSchema}}}
 const prompt = ai.definePrompt({
   name: 'generateWeeklyMealPlanPrompt',
   input: {schema: GenerateWeeklyMealPlanInputSchema},
   output: {schema: GenerateWeeklyMealPlanOutputSchema},
-  prompt: `You are a meal plan generator. Generate a 7-day meal plan (including breakfast, lunch and dinner) based on the dietary preferences specified by the user.
+  prompt: `You are an expert meal planning AI. Your task is to generate a 7-day meal plan based on the user's dietary preferences.
+The output MUST be a valid JSON object.
 
-Dietary Preferences: {{{dietaryPreferences}}}
+User's Dietary Preferences: {{{dietaryPreferences}}}
 
-Output the meal plan in JSON format. Each day should have breakfast, lunch and dinner. If a meal is not applicable or should be skipped, you can set it to null.
+Please generate a JSON object with a single top-level key: "weeklyMealPlan".
+The "weeklyMealPlan" value should be an array of 7 objects, one for each day of the week (e.g., "Monday", "Tuesday", ..., "Sunday").
 
-Each meal plan should contains recipe name, ingredients and instructions.
+Each daily object must have the following keys:
+- "day": A string for the day of the week.
+- "breakfast": An array of meal objects for breakfast. If no breakfast is planned, provide an empty array.
+- "lunch": An array of meal objects for lunch. If no lunch is planned, provide an empty array.
+- "dinner": An array of meal objects for dinner. If no dinner is planned, provide an empty array.
 
-Here is the output schema: {{{outputSchema}}}`,
+Each meal object within the "breakfast", "lunch", or "dinner" arrays must have the following keys:
+- "recipeName": A string, the name of the recipe (e.g., "Avocado Toast", "Grilled Chicken Salad").
+- "ingredients": An array of strings, listing the ingredients for the recipe.
+- "instructions": A string detailing the preparation instructions.
+
+Ensure all string values are properly escaped for JSON. For example, a day's plan might look like:
+{
+  "day": "Monday",
+  "breakfast": [
+    { "recipeName": "Oatmeal with Berries", "ingredients": ["oats", "water", "berries"], "instructions": "Cook oats with water, top with berries." }
+  ],
+  "lunch": [], 
+  "dinner": [
+    { "recipeName": "Salmon with Roasted Vegetables", "ingredients": ["salmon fillet", "broccoli", "carrots", "olive oil"], "instructions": "Roast salmon and vegetables with olive oil." }
+  ]
+}
+Ensure your entire response is a single JSON object starting with { and ending with }.
+`,
 });
 
 const generateWeeklyMealPlanFlow = ai.defineFlow(
@@ -77,16 +101,28 @@ const generateWeeklyMealPlanFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    // Ensure all meals are non-null if AI returns null, can be handled by user later
+    // Updated processedOutput: Default to empty arrays for meal slots.
     const processedOutput = output ? {
       ...output,
       weeklyMealPlan: output.weeklyMealPlan.map(dayPlan => ({
         ...dayPlan,
-        breakfast: dayPlan.breakfast ?? { mealName: 'Breakfast', recipeName: 'Not specified', ingredients: [], instructions: '' },
-        lunch: dayPlan.lunch ?? { mealName: 'Lunch', recipeName: 'Not specified', ingredients: [], instructions: '' },
-        dinner: dayPlan.dinner ?? { mealName: 'Dinner', recipeName: 'Not specified', ingredients: [], instructions: '' },
+        breakfast: dayPlan.breakfast ?? [],
+        lunch: dayPlan.lunch ?? [],
+        dinner: dayPlan.dinner ?? [],
       }))
-    } : null;
+    } : { weeklyMealPlan: [] }; // Default to an empty plan if AI output is null
+    
+    // Further ensure each meal in the array is valid, though Zod should handle this.
+    // This is more for robustness if the AI generates partial/invalid meal objects within the arrays.
+    if (processedOutput.weeklyMealPlan) {
+        processedOutput.weeklyMealPlan = processedOutput.weeklyMealPlan.map(day => ({
+            ...day,
+            breakfast: (day.breakfast || []).filter(meal => meal && meal.recipeName),
+            lunch: (day.lunch || []).filter(meal => meal && meal.recipeName),
+            dinner: (day.dinner || []).filter(meal => meal && meal.recipeName),
+        }));
+    }
+    
     return processedOutput!;
   }
 );
