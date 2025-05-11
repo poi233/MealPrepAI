@@ -27,12 +27,7 @@ export default function Header() {
               <Sparkles className="mr-2 h-4 w-4" />
               Generate Meal Plan
             </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/">View Plan</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/profile">Profile</Link>
-            </Button>
+            {/* "View Plan" and "Profile" buttons removed */}
           </nav>
         </div>
       </header>
@@ -43,3 +38,4 @@ export default function Header() {
     </>
   );
 }
+
