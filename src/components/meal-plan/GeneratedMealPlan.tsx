@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -12,12 +13,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   deleteMealPlanByNameAction, 
   saveMealPlanToDb, 
-  getActiveMealPlanAction,
   getSavedMealPlanByNameAction
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-// import { normalizeStringInput } from "@/lib/utils"; // Not used here
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
@@ -33,37 +32,26 @@ export default function GeneratedMealPlan() {
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
     setMealPlanLoading(true);
-    setError(null);
+    setError(null); // Clear previous errors
     let planDataToSet: MealPlanData | null = null;
 
-    if (planNameToLoad) {
+    if (planNameToLoad) { // If UserProfileContext.activePlanName is set
       const result = await getSavedMealPlanByNameAction(planNameToLoad);
-      if (result && !("error" in result)) { // result is either plan data or null (if not found by name)
-        if (result) { // if result is not null (i.e., plan found)
+      if (result && !("error" in result)) { 
+        if (result) { // Plan found by name
             planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
+        } else { // Plan by name not found (result is null from action)
+            planDataToSet = null;
         }
-        // if result is null (plan not found by name), planDataToSet remains null
-      } else if (result && "error" in result) {
-        // Error retrieving plan, e.g., DB issue. Do not log to console as per user request.
-        // console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`); 
-        // If there's an error from the action, planDataToSet remains null. UI will show "No plan".
+      } else if (result && "error" in result) { // Error occurred fetching plan by name
+        // console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`); // User requested no console errors on load failure
+        planDataToSet = null; // On error, ensure no plan is shown
+      } else { // Catch other unexpected non-error, non-data cases for getSavedMealPlanByNameAction
+        planDataToSet = null;
       }
-      // If planNameToLoad is null or plan not found or error, planDataToSet will be null
-    } else { // No active plan name, try to load the one marked active in DB
-      const activePlanResult = await getActiveMealPlanAction();
-      if (activePlanResult && !("error" in activePlanResult)) { // activePlanResult is plan data or null
-          if (activePlanResult) { // if activePlanResult is not null
-            planDataToSet = { 
-                weeklyMealPlan: activePlanResult.mealPlanData.weeklyMealPlan, 
-                planDescription: activePlanResult.planDescription 
-            };
-          }
-          // if activePlanResult is null, planDataToSet remains null
-      } else if (activePlanResult && "error" in activePlanResult) {
-        // Error retrieving active plan. Do not log to console.
-        // console.error(`Error retrieving active plan: ${activePlanResult.error}.`);
-        // If there's an error from the action, planDataToSet remains null. UI will show "No plan".
-      }
+    } else { // If UserProfileContext.activePlanName is null
+      // Do not attempt to load a DB-active plan. User has no active plan selected.
+      planDataToSet = null;
     }
     
     setMealPlan(planDataToSet);
@@ -94,7 +82,7 @@ export default function GeneratedMealPlan() {
         description: "Your meal plan changes have been saved.",
       });
     } catch (dbError: any) {
-      console.error("Failed to save meal plan to DB:", dbError); // Keep this console.error for explicit save actions
+      console.error("Failed to save meal plan to DB:", dbError); 
       toast({
         title: "Database Error",
         description: dbError.message || "Could not save changes to the database.",
@@ -217,6 +205,8 @@ export default function GeneratedMealPlan() {
     );
   }
 
+  // Display error message only if an error string is present AND there's no meal plan data to show.
+  // This prevents showing an error if a plan (even empty) is successfully loaded/set.
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
     return (
       <Alert variant="destructive" className="mt-6">
@@ -289,3 +279,4 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
+
