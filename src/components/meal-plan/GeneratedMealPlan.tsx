@@ -1,8 +1,7 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMealPlan } from "@/contexts/MealPlanContext";
+import { useState, useEffect, useCallback } from "react";
+import { useMealPlan, type MealPlanData } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
 import AddRecipeDialog from "./AddRecipeDialog";
@@ -10,99 +9,85 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2, Utensils } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { deleteMealPlanAction, saveMealPlanToDb, getSavedMealPlanAction } from "@/app/actions";
+import { 
+  deleteMealPlanByNameAction, 
+  saveMealPlanToDb, 
+  getActiveMealPlanAction,
+  getSavedMealPlanByNameAction
+} from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import { normalizePreferences } from "@/lib/utils";
-import type { MealPlanState } from "@/contexts/MealPlanContext";
+import { normalizeStringInput } from "@/lib/utils";
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
 export default function GeneratedMealPlan() {
-  const { mealPlan, isLoading, error, setMealPlan, setError, setIsLoading } = useMealPlan();
-  const { dietaryPreferences: profilePreferences } = useUserProfile();
+  const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError: setMealPlanError, setIsLoading: setMealPlanLoading } = useMealPlan();
+  const { activePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
+  
+  // Combined loading state
+  const isLoading = isMealPlanContextLoading || isProfileLoading;
+
+  const loadPlan = useCallback(async (planNameToLoad: string | null) => {
+    setMealPlanLoading(true);
+    setMealPlanError(null);
+    let planDataToSet: MealPlanData | null = null;
+
+    if (planNameToLoad) {
+      const result = await getSavedMealPlanByNameAction(planNameToLoad);
+      if (result && !("error" in result)) {
+        planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
+      } else if (result && "error" in result) {
+        console.error(`Error retrieving plan "${planNameToLoad}": ${result.error}.`);
+        // Do not set mealPlanError here to allow showing "No plan" message
+        // setMealPlanError(result.error); 
+      }
+    } else { // No active plan name, try to load the one marked active in DB
+      const activePlanResult = await getActiveMealPlanAction();
+      if (activePlanResult && !("error" in activePlanResult)) {
+          planDataToSet = { 
+            weeklyMealPlan: activePlanResult.mealPlanData.weeklyMealPlan, 
+            planDescription: activePlanResult.planDescription 
+          };
+          // Optionally update activePlanName in context if it was out of sync,
+          // though UserProfileContext should be the source of truth for activePlanName.
+          // If activePlanResult.planName differs from planNameToLoad (which is null here),
+          // it means UserProfileContext might not have an active plan name set yet.
+          // This is handled by UserProfileContext's initialization.
+      } else if (activePlanResult && "error" in activePlanResult) {
+        console.error(`Error retrieving active plan: ${activePlanResult.error}.`);
+        // setMealPlanError(activePlanResult.error);
+      }
+    }
+    
+    setMealPlan(planDataToSet); // Set to null if no plan found or error (error handled by mealPlanError state)
+    setMealPlanLoading(false);
+  }, [setMealPlan, setMealPlanError, setMealPlanLoading]);
+
 
   useEffect(() => {
-    const normalizedProfilePrefs = normalizePreferences(profilePreferences);
-
-    if (normalizedProfilePrefs) {
-      // Preferences are set
-      if (mealPlan?.loadedForPrefs === normalizedProfilePrefs && !isLoading) {
-        // Plan is already loaded for these exact preferences and not currently loading, so do nothing.
-        // Or, an attempt was made and it was empty, still loadedForPrefs matches.
-        return;
-      }
-      
-      if (isLoading && mealPlan?.loadedForPrefs === normalizedProfilePrefs) { 
-        // If already loading for the *current* preferences, let it finish to avoid duplicate loads.
-          return;
-      }
-
-      const loadInitialPlan = async () => {
-        setIsLoading(true);
-        setError(null); 
-        try {
-          const existingPlanData = await getSavedMealPlanAction(normalizedProfilePrefs);
-
-          if (existingPlanData && !("error" in existingPlanData)) {
-            setMealPlan({ ...existingPlanData, loadedForPrefs: normalizedProfilePrefs });
-          } else if (existingPlanData && "error" in existingPlanData) {
-            setError(existingPlanData.error);
-            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs }); 
-            toast({
-                title: "Error Loading Saved Plan",
-                description: existingPlanData.error,
-                variant: "destructive",
-            });
-          } else {
-            // existingPlanData is null (plan not found in DB for these prefs)
-            setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
-          }
-        } catch (e: any) {
-          const errorMessage = e.message || "Failed to load saved meal plan.";
-          setError(errorMessage);
-          setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedProfilePrefs });
-          toast({
-            title: "Loading Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      loadInitialPlan();
-    } else {
-      // No profile preferences are set
-      if (mealPlan) setMealPlan(null); 
-      if (error) setError(null); 
-      if (isLoading) setIsLoading(false); 
+    if (!isProfileLoading) { // Only load once profile (and activePlanName) is resolved
+        loadPlan(activePlanName);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, setIsLoading, setMealPlan, setError]); // Removed mealPlan from dependencies to avoid re-triggering on mealPlan updates by other actions (add/delete)
-                                                               // Only re-trigger if profilePreferences change.
-                                                               // isLoading is also a dep to allow re-fetch if it was stuck.
+  }, [activePlanName, isProfileLoading]); // Removed loadPlan from deps to avoid re-triggering on its own recreation.
 
-  const saveCurrentPlanToDb = async (planToSave: MealPlanState) => {
-    if (!planToSave || !profilePreferences) return;
-    const normalizedPrefs = normalizePreferences(profilePreferences);
-    if (!normalizedPrefs) {
+  const saveCurrentPlanToDb = async (updatedMealPlanData: GenerateWeeklyMealPlanOutput) => {
+    if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
         toast({
             title: "Cannot Save Plan",
-            description: "Dietary preferences are not set. Please set them in your profile or when generating a plan.",
+            description: "Active plan name or description is missing.",
             variant: "destructive",
         });
         return;
     }
-    // Ensure we are saving only GenerateWeeklyMealPlanOutput, not the context state with loadedForPrefs
-    const { loadedForPrefs, ...planDataToSave } = planToSave;
 
     try {
-      await saveMealPlanToDb(normalizedPrefs, planDataToSave as GenerateWeeklyMealPlanOutput); // Cast to ensure type
+      await saveMealPlanToDb(activePlanName, mealPlan.planDescription, updatedMealPlanData);
       toast({
         title: "Plan Updated",
         description: "Your meal plan changes have been saved.",
@@ -118,44 +103,47 @@ export default function GeneratedMealPlan() {
   };
 
   const handleClearPlan = async () => {
-    setIsLoading(true);
-    setError(null);
+    if (!activePlanName) {
+        toast({ title: "No Active Plan", description: "There is no active plan to remove.", variant: "default"});
+        return;
+    }
+    setMealPlanLoading(true);
+    setMealPlanError(null);
     
-    const normalizedPrefs = normalizePreferences(profilePreferences);
-    if (normalizedPrefs) {
-      try {
-        const result = await deleteMealPlanAction(normalizedPrefs);
-        if (result.success) {
-          toast({
-            title: "Plan Cleared",
-            description: "The meal plan has been removed from the database.",
-          });
-        } else {
-          setError(result.error || "Failed to clear plan from database.");
-          toast({
-            title: "Error Clearing Plan",
-            description: result.error || "Could not remove the plan from the database.",
-            variant: "destructive",
-          });
-        }
-      } catch (e: any) {
-        const errorMessage = e.message || "An unexpected error occurred while clearing the plan.";
-        setError(errorMessage);
+    try {
+      const result = await deleteMealPlanByNameAction(activePlanName);
+      if (result.success) {
         toast({
-          title: "Clearing Error",
-          description: errorMessage,
+          title: "Plan Removed",
+          description: `The meal plan "${activePlanName}" has been removed.`,
+        });
+        setMealPlan(null); // Clear from context
+        // activePlanName in UserProfileContext will be cleared by header's select if user explicitly clears,
+        // or if this was the last plan, it might remain until another is selected/generated.
+        // Potentially call setActivePlanName(null) here if desired.
+      } else {
+        setMealPlanError(result.error || "Failed to remove plan from database.");
+        toast({
+          title: "Error Removing Plan",
+          description: result.error || "Could not remove the plan from the database.",
           variant: "destructive",
         });
       }
+    } catch (e: any) {
+      const errorMessage = e.message || "An unexpected error occurred while removing the plan.";
+      setMealPlanError(errorMessage);
+      toast({
+        title: "Removing Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+        setMealPlanLoading(false);
     }
-    
-    // Set to an empty plan structure marked for current prefs to stop reload attempts
-    setMealPlan({ weeklyMealPlan: [], loadedForPrefs: normalizedPrefs || undefined }); 
-    setIsLoading(false);
   };
 
   const handleDeleteMeal = (day: string, mealTypeKey: MealTypeKey, recipeIndex: number) => {
-    if (!mealPlan) return;
+    if (!mealPlan || !mealPlan.weeklyMealPlan) return;
 
     const updatedWeeklyMealPlan = mealPlan.weeklyMealPlan.map(daily => {
       if (daily.day === day) {
@@ -167,13 +155,14 @@ export default function GeneratedMealPlan() {
       }
       return daily;
     });
-    const updatedMealPlan: MealPlanState = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
-    setMealPlan(updatedMealPlan);
+    
+    const newMealPlanState: MealPlanData = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
+    setMealPlan(newMealPlanState);
     toast({
       title: "Recipe Deleted",
       description: `A recipe for ${mealTypeKey} on ${day} has been removed locally.`,
     });
-    saveCurrentPlanToDb(updatedMealPlan);
+    saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
   };
 
   const handleAddMealClick = (day: string, mealTypeKey: MealTypeKey, mealTypeTitle: string) => {
@@ -182,7 +171,7 @@ export default function GeneratedMealPlan() {
   };
 
   const handleAddNewRecipeSubmit = (newRecipe: Meal) => {
-    if (!mealPlan || !addRecipeTarget) return;
+    if (!mealPlan || !mealPlan.weeklyMealPlan || !addRecipeTarget) return;
 
     const { day, mealTypeKey } = addRecipeTarget;
 
@@ -194,13 +183,14 @@ export default function GeneratedMealPlan() {
       }
       return daily;
     });
-    const updatedMealPlan: MealPlanState = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
-    setMealPlan(updatedMealPlan);
+
+    const newMealPlanState: MealPlanData = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
+    setMealPlan(newMealPlanState);
     toast({
       title: "Recipe Added",
       description: `${newRecipe.recipeName} added locally for ${mealTypeKey} on ${day}.`,
     });
-    saveCurrentPlanToDb(updatedMealPlan);
+    saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
     setIsAddRecipeDialogOpen(false);
     setAddRecipeTarget(null);
   };
@@ -229,17 +219,17 @@ export default function GeneratedMealPlan() {
     );
   }
 
-  if (error) {
+  if (mealPlanError && !mealPlan?.weeklyMealPlan?.length) { // Show error only if there's no plan to display
     return (
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-5 w-5" />
         <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>{mealPlanError}</AlertDescription>
         <Button onClick={() => {
-          setError(null); 
-          if (mealPlan) setMealPlan({...mealPlan, loadedForPrefs: undefined }); else setMealPlan(null);
+          setMealPlanError(null); 
+          loadPlan(activePlanName); // Retry loading
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
-          Dismiss & Retry Load
+          Retry Load
         </Button>
       </Alert>
     );
@@ -249,15 +239,11 @@ export default function GeneratedMealPlan() {
      return (
         <div className="mt-12 text-center py-10">
             <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Yet!</h2>
-            <p className="text-lg text-muted-foreground mb-1">
-            It looks like you don&apos;t have a meal plan loaded for the current preferences,
-            </p>
-            <p className="text-lg text-muted-foreground mb-1">
-            or the plan is empty.
-            </p>
+            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Loaded!</h2>
             <p className="text-lg text-muted-foreground mb-6">
-            Ready to start? Click the &quot;Generate Meal Plan&quot; button in the header.
+            {activePlanName ? `The plan "${activePlanName}" is empty or could not be loaded.` : "No active meal plan selected."}
+            <br/>
+            Please generate a new meal plan or select an existing one from the header.
             </p>
         </div>
     );
@@ -266,22 +252,24 @@ export default function GeneratedMealPlan() {
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
-        <h2 className="text-2xl font-bold text-primary">Your Weekly Meal Plan</h2>
+        <h2 className="text-2xl font-bold text-primary">
+          {activePlanName ? `Plan: ${activePlanName}` : "Your Weekly Meal Plan"}
+        </h2>
         <Button
             variant="outline"
             size="sm"
             onClick={handleClearPlan}
             className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            disabled={isLoading}
+            disabled={isLoading || !activePlanName}
           >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-            {isLoading ? "Clearing..." : "Remove All"}
+            {isLoading ? "Processing..." : "Remove All"}
         </Button>
       </div>
       <div className="space-y-3">
         {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
           <DailyMealCard 
-            key={dailyPlanItem.day} 
+            key={`${activePlanName}-${dailyPlanItem.day}`}
             dailyPlan={dailyPlanItem} 
             onDeleteMeal={handleDeleteMeal}
             onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
@@ -303,4 +291,3 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
-

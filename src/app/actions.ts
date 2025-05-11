@@ -1,19 +1,35 @@
-
 "use server";
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
-import { saveMealPlanToDb as saveMealPlanToDbInternal, getMealPlanByPreferencesFromDb, deleteMealPlanFromDb, getAllMealPlanPreferencesFromDb } from "@/lib/db";
+import { 
+  saveMealPlanToDb as saveMealPlanToDbInternal, 
+  getMealPlanByNameFromDb,
+  deleteMealPlanFromDbByName, 
+  getAllMealPlanNamesFromDb,
+  getActiveMealPlanFromDb,
+  setActivePlanInDb
+} from "@/lib/db";
+
+export interface GenerateMealPlanActionInput {
+  planName: string;
+  planDescription: string;
+}
 
 export async function generateMealPlanAction(
-  input: GenerateWeeklyMealPlanInput
+  input: GenerateMealPlanActionInput
 ): Promise<GenerateWeeklyMealPlanOutput | { error: string }> {
   try {
-    if (!input.dietaryPreferences || input.dietaryPreferences.trim() === "") {
-      return { error: "Dietary preferences cannot be empty." };
+    if (!input.planName || input.planName.trim() === "") {
+      return { error: "Plan name cannot be empty." };
+    }
+    if (!input.planDescription || input.planDescription.trim() === "") {
+      return { error: "Plan description cannot be empty." };
     }
     
-    const result = await generateWeeklyMealPlan(input);
+    const aiInput: GenerateWeeklyMealPlanInput = { planDescription: input.planDescription };
+    const result = await generateWeeklyMealPlan(aiInput);
+
     if (!result || !result.weeklyMealPlan) {
         if (result && (result as any).error) {
              return { error: `AI Error: ${(result as any).error}` };
@@ -21,13 +37,18 @@ export async function generateMealPlanAction(
         return { error: "Failed to generate meal plan. The AI returned an unexpected result or no plan." };
     }
      if (result.weeklyMealPlan.length === 0) {
-        return { error: "The AI generated an empty meal plan. Try refining your preferences." };
+        return { error: "The AI generated an empty meal plan. Try refining your plan description." };
     }
 
     try {
-      await saveMealPlanToDbInternal(input.dietaryPreferences, result);
+      // Save with planName and planDescription
+      await saveMealPlanToDbInternal(input.planName, input.planDescription, result);
+      // After saving, set this plan as active
+      await setActivePlanInDb(input.planName);
     } catch (dbError) {
-      console.error("Failed to save meal plan to DB after generation:", dbError);
+      console.error("Failed to save meal plan to DB or set active after generation:", dbError);
+      // Don't return dbError to client directly, it might contain sensitive info.
+      return { error: "Failed to save the generated meal plan."};
     }
 
     return result;
@@ -38,18 +59,18 @@ export async function generateMealPlanAction(
   }
 }
 
-export async function getSavedMealPlanAction(
-  dietaryPreferences: string
-): Promise<GenerateWeeklyMealPlanOutput | null | { error: string }> {
-  if (!dietaryPreferences || dietaryPreferences.trim() === "") {
+export async function getSavedMealPlanByNameAction(
+  planName: string
+): Promise<{ mealPlanData: GenerateWeeklyMealPlanOutput; planDescription: string; isActive: boolean } | null | { error: string }> {
+  if (!planName || planName.trim() === "") {
     return null; 
   }
   try {
-    const mealPlan = await getMealPlanByPreferencesFromDb(dietaryPreferences);
-    if (mealPlan === null) {
+    const mealPlanData = await getMealPlanByNameFromDb(planName);
+    if (mealPlanData === null) {
       return null; 
     }
-    return mealPlan; 
+    return mealPlanData; 
   } catch (e) {
     console.error("Error fetching saved meal plan from database:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching the saved meal plan.";
@@ -57,14 +78,14 @@ export async function getSavedMealPlanAction(
   }
 }
 
-export async function deleteMealPlanAction(
-  dietaryPreferences: string
+export async function deleteMealPlanByNameAction(
+  planName: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!dietaryPreferences || dietaryPreferences.trim() === "") {
-    return { success: false, error: "Dietary preferences cannot be empty." };
+  if (!planName || planName.trim() === "") {
+    return { success: false, error: "Plan name cannot be empty." };
   }
   try {
-    await deleteMealPlanFromDb(dietaryPreferences);
+    await deleteMealPlanFromDbByName(planName);
     return { success: true };
   } catch (e) {
     console.error("Error deleting meal plan from database:", e);
@@ -73,18 +94,24 @@ export async function deleteMealPlanAction(
   }
 }
 
+// This function is for direct DB interaction, keeping planName and planDescription separate.
 export async function saveMealPlanToDb(
-  dietaryPreferences: string, 
+  planName: string, 
+  planDescription: string,
   mealPlanData: GenerateWeeklyMealPlanOutput
 ): Promise<void> {
-  if (!dietaryPreferences || dietaryPreferences.trim() === "") {
-    throw new Error("Dietary preferences cannot be empty when saving a meal plan.");
+  if (!planName || planName.trim() === "") {
+    throw new Error("Plan name cannot be empty when saving a meal plan.");
+  }
+  if (!planDescription || planDescription.trim() === "") {
+    // Allowing empty description for now, but might want to enforce it
+    // throw new Error("Plan description cannot be empty when saving a meal plan.");
   }
   if (!mealPlanData || !mealPlanData.weeklyMealPlan) {
     throw new Error("Meal plan data is invalid or empty.");
   }
   try {
-    await saveMealPlanToDbInternal(dietaryPreferences, mealPlanData);
+    await saveMealPlanToDbInternal(planName, planDescription, mealPlanData);
   } catch (e) {
     console.error("Error in saveMealPlanToDb action:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while saving the meal plan.";
@@ -114,13 +141,38 @@ export async function generateRecipeDetailsAction(
   }
 }
 
-export async function getAllSavedMealPlanPreferencesAction(): Promise<string[] | { error: string }> {
+export async function getAllSavedMealPlanNamesAction(): Promise<string[] | { error: string }> {
   try {
-    const preferences = await getAllMealPlanPreferencesFromDb();
-    return preferences;
+    const names = await getAllMealPlanNamesFromDb();
+    return names;
   } catch (e) {
-    console.error("Error fetching all saved meal plan preferences:", e);
-    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching preferences.";
+    console.error("Error fetching all saved meal plan names:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching plan names.";
     return { error: errorMessage };
+  }
+}
+
+export async function getActiveMealPlanAction(): Promise<{ planName: string; planDescription: string; mealPlanData: GenerateWeeklyMealPlanOutput } | null | { error: string }> {
+  try {
+    const activePlan = await getActiveMealPlanFromDb();
+    return activePlan;
+  } catch (e) {
+    console.error("Error fetching active meal plan:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching the active plan.";
+    return { error: errorMessage };
+  }
+}
+
+export async function setActivePlanAction(planName: string): Promise<{ success: boolean; error?: string }> {
+  if (!planName || planName.trim() === "") {
+    return { success: false, error: "Plan name cannot be empty." };
+  }
+  try {
+    await setActivePlanInDb(planName);
+    return { success: true };
+  } catch (e) {
+    console.error(`Error setting active plan "${planName}":`, e);
+    const errorMessage = e instanceof Error ? e.message : `An unknown error occurred while setting active plan "${planName}".`;
+    return { success: false, error: errorMessage };
   }
 }

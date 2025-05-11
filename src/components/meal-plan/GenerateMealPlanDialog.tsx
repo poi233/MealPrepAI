@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,134 +22,123 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useMealPlan } from "@/contexts/MealPlanContext";
-import { generateMealPlanAction, getSavedMealPlanAction } from "@/app/actions";
+import { generateMealPlanAction, getSavedMealPlanByNameAction, type GenerateMealPlanActionInput } from "@/app/actions";
 import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
-import { normalizePreferences } from "@/lib/utils";
+import { normalizeStringInput } from "@/lib/utils";
 import type { GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
 
 
-const mealPreferencesFormSchema = z.object({
-  dietaryPreferences: z.string()
-    .transform(val => normalizePreferences(val))
-    .pipe(z.string().min(3, {
-        message: "Please enter your dietary preferences (at least 3 characters).",
-    }).max(500, {
-        message: "Dietary preferences must not exceed 500 characters.",
+const mealPlanFormSchema = z.object({
+  planName: z.string()
+    .transform(val => normalizeStringInput(val))
+    .pipe(z.string().min(1, {
+        message: "Plan name is required.",
+    }).max(100, {
+        message: "Plan name must not exceed 100 characters.",
     })),
+  planDescription: z.string()
+    .min(10, { // Min length for a meaningful description
+        message: "Plan description must be at least 10 characters.",
+    }).max(1000, {
+        message: "Plan description must not exceed 1000 characters.",
+    }),
 });
 
-type MealPreferencesFormValues = z.infer<typeof mealPreferencesFormSchema>;
+type MealPlanFormValues = z.infer<typeof mealPlanFormSchema>;
 
 interface GenerateMealPlanDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPlanGenerated?: (newlyGeneratedPreferences: string) => void; 
+  onPlanGenerated?: (newlyGeneratedPlanName: string) => void; 
 }
+
+const DEFAULT_PLAN_NAME = "My Default Plan";
+const DEFAULT_PLAN_DESCRIPTION = "A balanced and healthy weekly meal plan. Please include a variety of protein sources, vegetables, and whole grains. Avoid excessive sugar and processed foods.";
 
 export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerated }: GenerateMealPlanDialogProps) {
   const { toast } = useToast();
-  const { dietaryPreferences: profilePreferences, setDietaryPreferences: setProfilePreferences } = useUserProfile();
-  const { setMealPlan, setIsLoading, setError, isLoading: isMealPlanLoading } = useMealPlan();
+  const { setActivePlanName, activePlanName: currentActivePlanName } = useUserProfile();
+  const { setMealPlan, setIsLoading: setMealPlanLoading, setError: setMealPlanError, isLoading: isMealPlanLoading } = useMealPlan();
 
-  const form = useForm<MealPreferencesFormValues>({
-    resolver: zodResolver(mealPreferencesFormSchema),
+  const form = useForm<MealPlanFormValues>({
+    resolver: zodResolver(mealPlanFormSchema),
     defaultValues: {
-      dietaryPreferences: "",
+      planName: DEFAULT_PLAN_NAME,
+      planDescription: DEFAULT_PLAN_DESCRIPTION,
     },
   });
 
   useEffect(() => {
     if (isOpen) {
-      const normalizedProfilePrefs = normalizePreferences(profilePreferences);
-      form.reset({ dietaryPreferences: normalizedProfilePrefs });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePreferences, isOpen]);
-
-  async function onSubmit(values: MealPreferencesFormValues) {
-    setIsLoading(true);
-    setError(null);
-    
-    const currentNormalizedPrefs = normalizePreferences(values.dietaryPreferences);
-    
-    if (currentNormalizedPrefs !== normalizePreferences(profilePreferences)) {
-      setProfilePreferences(currentNormalizedPrefs); 
-      toast({
-        title: "Preferences Updated",
-        description: "Your dietary preferences have been updated in your profile.",
-        variant: "default",
+      // If there's an active plan, prefill with its name and description if desired,
+      // or always start with defaults for a "new" plan generation.
+      // For now, let's stick to defaults or last user input if dialog was re-opened.
+      // Resetting to defaults each time might be better for "Generate New"
+      form.reset({
+        planName: currentActivePlanName || DEFAULT_PLAN_NAME,
+        planDescription: DEFAULT_PLAN_DESCRIPTION // Or fetch description of currentActivePlanName
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentActivePlanName]); // form not needed in dep array for reset
 
-    let planToSet: GenerateWeeklyMealPlanOutput | null = null;
-    let finalError: string | null = null;
-    let planFetchedFromDb = false;
+  async function onSubmit(values: MealPlanFormValues) {
+    setMealPlanLoading(true);
+    setMealPlanError(null);
+    
+    const normalizedPlanName = normalizeStringInput(values.planName);
+
+    const actionInput: GenerateMealPlanActionInput = {
+      planName: normalizedPlanName,
+      planDescription: values.planDescription,
+    };
 
     try {
-      const existingPlanOutcome = await getSavedMealPlanAction(currentNormalizedPrefs);
+      // Check if plan with this name already exists to inform user, or just overwrite.
+      // For now, we will overwrite as per saveMealPlanToDb's ON CONFLICT.
+      // A small toast could inform if it's an update.
+      const existingPlan = await getSavedMealPlanByNameAction(normalizedPlanName);
+      const isUpdate = existingPlan && !("error" in existingPlan);
 
-      if (existingPlanOutcome && !("error" in existingPlanOutcome)) {
-        planToSet = existingPlanOutcome;
-        planFetchedFromDb = true;
+      const generationResult = await generateMealPlanAction(actionInput);
+
+      if ("error" in generationResult) {
+        setMealPlanError(generationResult.error);
         toast({
-          title: "Meal Plan Loaded",
-          description: "Found a saved meal plan for these preferences.",
+          title: "Error Generating Plan",
+          description: generationResult.error,
+          variant: "destructive",
         });
+        setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); // Clear plan on error
       } else {
-        if (existingPlanOutcome && "error" in existingPlanOutcome) {
-          console.error("Error fetching saved meal plan from DB:", existingPlanOutcome.error);
-          // Do not toast here yet, only if generation also fails
+        setMealPlan({ ...generationResult, planDescription: values.planDescription });
+        setActivePlanName(normalizedPlanName); // This will also trigger DB update for active status
+        toast({
+          title: isUpdate ? "Meal Plan Updated!" : "Meal Plan Generated!",
+          description: `Your personalized 7-day meal plan "${normalizedPlanName}" is ready.`,
+        });
+        if (onPlanGenerated) {
+          onPlanGenerated(normalizedPlanName);
         }
-        
-        const generationResult = await generateMealPlanAction({ dietaryPreferences: currentNormalizedPrefs });
-
-        if ("error" in generationResult) {
-          finalError = generationResult.error;
-          toast({
-            title: "Error Generating Plan",
-            description: generationResult.error,
-            variant: "destructive",
-          });
-        } else {
-          planToSet = generationResult as GenerateWeeklyMealPlanOutput;
-          toast({
-            title: "Meal Plan Generated!",
-            description: "Your personalized 7-day meal plan is ready.",
-          });
-          if (onPlanGenerated) {
-            onPlanGenerated(currentNormalizedPrefs);
-          }
-        }
-      }
-
-      if (planToSet) {
-        setMealPlan({ ...planToSet, loadedForPrefs: currentNormalizedPrefs });
         onClose(); 
       }
-      
-      if (finalError) {
-        setError(finalError);
-        if (!planToSet) {
-           setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs });
-        }
-      }
-
     } catch (e: any) { 
       const errorMessage = e.message || "An unexpected error occurred.";
-      setError(errorMessage); 
-      setMealPlan({ weeklyMealPlan: [], loadedForPrefs: currentNormalizedPrefs });
+      setMealPlanError(errorMessage); 
+      setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); // Clear plan on error
       toast({
         title: "Operation Error",
         description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setMealPlanLoading(false);
     }
   }
   
@@ -158,32 +146,47 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Generate New Meal Plan</DialogTitle>
+          <DialogTitle>Generate or Update Meal Plan</DialogTitle>
           <DialogDescription>
-            Enter your dietary preferences below. We&apos;ll use them to create a personalized 7-day meal plan.
+            Enter a name for your plan and describe your dietary needs.
+            If a plan with this name exists, it will be updated.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
             <FormField
               control={form.control}
-              name="dietaryPreferences"
+              name="planName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">Dietary Preferences</FormLabel>
+                  <FormLabel className="text-base font-semibold">Plan Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., My Weekly Healthy Mix" {...field} />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    A unique name for this meal plan.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="planDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base font-semibold">Plan Description (for AI)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., vegetarian, low-carb, no nuts, high protein..."
-                      className="min-h-[100px] resize-y text-sm"
+                      placeholder="e.g., vegetarian, low-carb, no nuts, high protein, for weight loss, quick meals..."
+                      className="min-h-[120px] resize-y text-sm"
                       {...field}
-                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    These preferences will also update your profile.
-                    Leave blank to use default/no specific preferences for generation.
+                    Provide details for the AI to generate your meal plan.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -197,7 +200,7 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
               </DialogClose>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isMealPlanLoading}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isMealPlanLoading ? "Processing..." : "Generate Plan"}
+                {isMealPlanLoading ? "Processing..." : "Generate / Update Plan"}
               </Button>
             </DialogFooter>
           </form>

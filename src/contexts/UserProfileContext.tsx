@@ -1,34 +1,63 @@
 "use client";
 
 import type React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
-import { normalizePreferences } from '@/lib/utils';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { normalizeStringInput } from '@/lib/utils'; // Renamed for clarity
+import { setActivePlanAction } from '@/app/actions'; // Import server action
 
 interface UserProfileContextType {
-  dietaryPreferences: string;
-  setDietaryPreferences: (preferences: string) => void;
+  activePlanName: string | null;
+  setActivePlanName: (planName: string | null) => void;
+  isLoading: boolean;
 }
 
 const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'mealPrepAI_userPreferences';
+const LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME = 'mealPrepAI_activePlanName';
 
 export function UserProfileProvider({ children }: { children: React.ReactNode }) {
-  const [dietaryPreferences, setDietaryPreferencesState] = useState<string>('');
+  const [activePlanName, setActivePlanNameState] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start true until loaded from localStorage
 
   useEffect(() => {
-    const storedPreferences = localStorage.getItem(LOCAL_STORAGE_KEY);
-    setDietaryPreferencesState(normalizePreferences(storedPreferences));
+    const storedPlanName = localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
+    if (storedPlanName) {
+      setActivePlanNameState(normalizeStringInput(storedPlanName));
+    }
+    setIsLoading(false);
   }, []);
 
-  const setDietaryPreferences = (preferences: string) => {
-    const normalized = normalizePreferences(preferences);
-    setDietaryPreferencesState(normalized);
-    localStorage.setItem(LOCAL_STORAGE_KEY, normalized);
-  };
+  const setActivePlanName = useCallback(async (planName: string | null) => {
+    const normalizedPlanName = planName ? normalizeStringInput(planName) : null;
+    
+    // Optimistically update local state and localStorage
+    setActivePlanNameState(normalizedPlanName);
+    if (normalizedPlanName) {
+      localStorage.setItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME, normalizedPlanName);
+      // Persist to DB
+      try {
+        setIsLoading(true);
+        const result = await setActivePlanAction(normalizedPlanName);
+        if (result.error) {
+            console.error("Failed to set active plan in DB:", result.error);
+            // Potentially revert optimistic update or show error to user
+            // For now, console log is sufficient based on current error handling
+        }
+      } catch (error) {
+        console.error("Error calling setActivePlanAction:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      localStorage.removeItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
+      // Optionally, could have a DB action to "clear" active plan if needed,
+      // but usually setting another active implicitly deactivates others.
+      // If no plan is active, then nothing needs to be sent to DB for "clearing".
+    }
+  }, []);
 
   return (
-    <UserProfileContext.Provider value={{ dietaryPreferences, setDietaryPreferences }}>
+    <UserProfileContext.Provider value={{ activePlanName, setActivePlanName, isLoading }}>
       {children}
     </UserProfileContext.Provider>
   );
