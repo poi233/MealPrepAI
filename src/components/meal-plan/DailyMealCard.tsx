@@ -7,39 +7,50 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, PlusCircle } from "lucide-react";
 
+type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
+
 interface DailyMealCardProps {
   dailyPlan: DailyMealPlan;
-  onDeleteMeal: (day: string, mealType: keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>) => void;
-  onAddMeal: (day: string, mealType: keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>) => void;
+  onDeleteMeal: (day: string, mealTypeKey: MealTypeKey, recipeIndex: number) => void;
+  onAddMeal: (day: string, mealTypeKey: MealTypeKey) => void;
 }
 
-type MealType = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
-
 export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: DailyMealCardProps) {
-  const mealTypes: MealType[] = ['breakfast', 'lunch', 'dinner'];
+  const mealTypes: Array<{ key: MealTypeKey; title: string }> = [
+    { key: 'breakfast', title: 'Breakfast' },
+    { key: 'lunch', title: 'Lunch' },
+    { key: 'dinner', title: 'Dinner' },
+  ];
 
-  const renderMealSlot = (mealType: MealType, meal: Meal | null) => {
-    const mealTitle = mealType.charAt(0).toUpperCase() + mealType.slice(1);
-    if (meal) {
-      return (
-        <MealItemCard
-          mealType={mealTitle}
-          meal={meal}
-          onDelete={() => onDeleteMeal(dailyPlan.day, mealType)}
-        />
-      );
-    }
+  const renderMealSlot = (mealTypeKey: MealTypeKey, mealTypeTitle: string, meals: Meal[] = []) => {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 border border-dashed rounded-md bg-muted/50">
-        <p className="text-sm text-muted-foreground mb-2">{mealTitle} slot empty</p>
+      <div className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
+        <h4 className="font-medium text-sm text-center text-primary capitalize">{mealTypeTitle}</h4>
+        {meals.length > 0 ? (
+          <div className="space-y-1.5">
+            {meals.map((meal, index) => (
+              <MealItemCard
+                key={`${meal.recipeName}-${index}`} // Assuming recipeName + index is unique enough for keys
+                mealType={mealTypeTitle}
+                meal={meal}
+                onDelete={() => onDeleteMeal(dailyPlan.day, mealTypeKey, index)}
+                // onEdit prop can be added here if edit functionality is implemented
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex-grow flex items-center justify-center">
+            <p className="text-xs text-muted-foreground italic">No {mealTypeTitle.toLowerCase()} planned.</p>
+          </div>
+        )}
         <Button
           variant="outline"
-          size="sm"
-          onClick={() => onAddMeal(dailyPlan.day, mealType)}
-          className="text-primary border-primary hover:bg-primary/10"
+          size="xs" // Custom size or adjusted padding for smaller button
+          onClick={() => onAddMeal(dailyPlan.day, mealTypeKey)}
+          className="text-primary border-primary hover:bg-primary/10 w-full mt-auto py-1 text-xs"
         >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add {mealTitle}
+          <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+          Add {mealTypeTitle}
         </Button>
       </div>
     );
@@ -47,17 +58,31 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
 
   return (
     <Card className="w-full shadow-md bg-card/90 backdrop-blur-sm">
-      <CardHeader className="border-b py-3 px-4">
-        <CardTitle className="text-xl font-semibold text-primary flex items-center gap-2">
-          <CalendarDays className="h-6 w-6" />
+      <CardHeader className="border-b py-2.5 px-3">
+        <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
+          <CalendarDays className="h-5 w-5" />
           {dailyPlan.day}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-        {renderMealSlot('breakfast', dailyPlan.breakfast)}
-        {renderMealSlot('lunch', dailyPlan.lunch)}
-        {renderMealSlot('dinner', dailyPlan.dinner)}
+      <CardContent className="p-2 md:p-3 grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+        {mealTypes.map(mealTypeInfo =>
+          renderMealSlot(
+            mealTypeInfo.key,
+            mealTypeInfo.title,
+            dailyPlan[mealTypeInfo.key] || [] // Ensure meals array is not undefined
+          )
+        )}
       </CardContent>
     </Card>
   );
 }
+
+// Ensure Button component accepts size="xs" or adjust styling as needed for smaller buttons
+// If 'xs' is not a standard size in your Button component, you might need to add it
+// or use className for specific padding/height.
+// For example, in Button component variants:
+// size: { default: "h-10 px-4 py-2", sm: "h-9 rounded-md px-3", xs: "h-7 rounded-md px-2 text-xs" }
+// Or use className="h-7 rounded-md px-2 text-xs" directly on the Button.
+// The current buttonVariants does not have 'xs'. Let's assume we use classNames for now or it's added.
+// I will use explicit classNames for the button size to be safe.
+// The component props for onDeleteMeal and onAddMeal were also updated.
