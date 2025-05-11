@@ -7,7 +7,7 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
 import AddRecipeDialog from "./AddRecipeDialog"; // Import the new dialog
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2, Save } from "lucide-react";
+import { AlertCircle, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { deleteMealPlanAction, saveMealPlanToDb } from "@/app/actions";
@@ -29,7 +29,7 @@ export default function GeneratedMealPlan() {
     try {
       await saveMealPlanToDb(dietaryPreferences, planToSave);
       toast({
-        title: "Plan Saved",
+        title: "Plan Updated",
         description: "Your meal plan changes have been saved to the database.",
       });
     } catch (dbError: any) {
@@ -186,16 +186,6 @@ export default function GeneratedMealPlan() {
         <h2 className="text-xl font-semibold text-center sm:text-left text-primary">Your Weekly Meal Plan</h2>
         <div className="flex gap-2">
           <Button
-            variant="default"
-            size="sm"
-            onClick={() => saveCurrentPlanToDb(mealPlan)}
-            className="bg-accent hover:bg-accent/90 text-accent-foreground"
-            disabled={isLoading}
-          >
-            <Save className="mr-1.5 h-3.5 w-3.5" />
-            {isLoading ? "Saving..." : "Save Plan Changes"}
-          </Button>
-          <Button
             variant="outline"
             size="sm"
             onClick={handleClearPlan}
@@ -213,7 +203,7 @@ export default function GeneratedMealPlan() {
             key={dailyPlanItem.day} 
             dailyPlan={dailyPlanItem} 
             onDeleteMeal={handleDeleteMeal}
-            onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} // Updated prop
+            onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
           />
         ))}
       </div>
@@ -232,3 +222,4 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
+
