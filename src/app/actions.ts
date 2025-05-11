@@ -2,6 +2,7 @@
 "use server";
 
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
+import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
 import { saveMealPlanToDb as saveMealPlanToDbInternal, getMealPlanByPreferencesFromDb, deleteMealPlanFromDb } from "@/lib/db";
 
 export async function generateMealPlanAction(
@@ -14,7 +15,6 @@ export async function generateMealPlanAction(
     
     const result = await generateWeeklyMealPlan(input);
     if (!result || !result.weeklyMealPlan) {
-        // Check for AI specific error messages if possible (e.g. if result contains an error field from AI)
         if (result && (result as any).error) {
              return { error: `AI Error: ${(result as any).error}` };
         }
@@ -24,13 +24,10 @@ export async function generateMealPlanAction(
         return { error: "The AI generated an empty meal plan. Try refining your preferences." };
     }
 
-
-    // Save to DB after successful generation
     try {
       await saveMealPlanToDbInternal(input.dietaryPreferences, result);
     } catch (dbError) {
       console.error("Failed to save meal plan to DB after generation:", dbError);
-      // Log the DB error. The function will still return the generated plan to the user.
     }
 
     return result;
@@ -50,7 +47,6 @@ export async function getSavedMealPlanAction(
   try {
     const mealPlan = await getMealPlanByPreferencesFromDb(dietaryPreferences);
     if (mealPlan === null) {
-      // Explicitly handle case where no plan is found, not as an error for the client unless it's a true db error.
       return null; 
     }
     return mealPlan; 
@@ -77,7 +73,6 @@ export async function deleteMealPlanAction(
   }
 }
 
-// Expose the internal save function for direct use by components if needed after modifications
 export async function saveMealPlanToDb(
   dietaryPreferences: string, 
   mealPlanData: GenerateWeeklyMealPlanOutput
@@ -93,6 +88,28 @@ export async function saveMealPlanToDb(
   } catch (e) {
     console.error("Error in saveMealPlanToDb action:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while saving the meal plan.";
-    throw new Error(errorMessage); // Re-throw to be caught by the caller
+    throw new Error(errorMessage); 
+  }
+}
+
+export async function generateRecipeDetailsAction(
+  input: GenerateRecipeDetailsInput
+): Promise<GenerateRecipeDetailsOutput | { error: string }> {
+  try {
+    if (!input.recipeName || input.recipeName.trim() === "") {
+      return { error: "Recipe name cannot be empty." };
+    }
+    const result = await generateRecipeDetails(input);
+    if (!result || !result.ingredients || !result.instructions) {
+      if (result && (result as any).error) {
+        return { error: `AI Error: ${(result as any).error}` };
+      }
+      return { error: "Failed to generate recipe details. The AI returned an unexpected result." };
+    }
+    return result;
+  } catch (e) {
+    console.error("Error generating recipe details:", e);
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating recipe details.";
+    return { error: errorMessage };
   }
 }
