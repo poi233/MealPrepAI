@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -22,11 +23,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
+  FormDescription, 
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Meal } from "@/ai/flows/generate-weekly-meal-plan";
+import type { Meal } from "@/ai/schemas/meal";
 import { generateRecipeDetailsAction, suggestRecipeAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Loader2, Wand2 } from "lucide-react";
@@ -45,7 +46,7 @@ interface AddRecipeDialogProps {
   onSubmit: (newRecipe: Meal) => void;
   mealTypeTitle: string;
   day: string;
-  planDescription: string; // Added for AI Suggestion context
+  planDescription: string; 
 }
 
 export default function AddRecipeDialog({
@@ -129,7 +130,7 @@ export default function AddRecipeDialog({
       return;
     }
     setIsSuggestingRecipe(true);
-    form.reset(); // Clear form before suggesting
+    form.reset(); 
     try {
       const result = await suggestRecipeAction({ day, mealType: mealTypeTitle, planDescription });
       if ("error" in result) {
@@ -163,7 +164,7 @@ export default function AddRecipeDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { form.reset(); onClose();} }}>
-      <DialogContent className="sm:max-w-[520px]"> {/* Slightly wider for new button */}
+      <DialogContent className="sm:max-w-[520px]"> 
         <DialogHeader>
           <DialogTitle>Add New Recipe</DialogTitle>
           <DialogDescription>
@@ -190,10 +191,9 @@ export default function AddRecipeDialog({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={handleSuggestRecipe}
                 disabled={isSuggestingRecipe || isGeneratingDetails || !planDescription}
-                className="text-xs w-full sm:w-auto"
+                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" // Adjusted size
               >
                 {isSuggestingRecipe ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
@@ -205,10 +205,9 @@ export default function AddRecipeDialog({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={handleGenerateDetails}
                 disabled={isGeneratingDetails || isSuggestingRecipe || !form.watch("recipeName")}
-                className="text-xs w-full sm:w-auto"
+                className="h-8 px-2.5 py-1.5 text-xs w-full sm:w-auto" // Adjusted size
               >
                 {isGeneratingDetails ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
@@ -270,3 +269,4 @@ export default function AddRecipeDialog({
     </Dialog>
   );
 }
+
