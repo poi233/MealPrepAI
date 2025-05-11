@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -105,6 +106,8 @@ export default function GeneratedMealPlan() {
           description: `The meal plan "${activePlanName}" has been removed.`,
         });
         setMealPlan(null); // Clear plan from context
+        // Active plan name is cleared via Header's select "clear" option if user desires
+        // Or if we want to force it here, call setActivePlanName(null) from userProfileContext
       } else {
         setError(result.error || "Failed to remove plan from database.");
         toast({
@@ -156,7 +159,6 @@ export default function GeneratedMealPlan() {
         description: "Plan description is missing. AI suggestions may not work correctly.",
         variant: "warning",
       });
-      // Allow opening dialog anyway, but AI Suggest might be disabled or warn
     }
     setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
     setIsAddRecipeDialogOpen(true);
@@ -169,7 +171,7 @@ export default function GeneratedMealPlan() {
 
     const updatedWeeklyMealPlan = mealPlan.weeklyMealPlan.map(daily => {
       if (daily.day === day) {
-        const currentMeals = daily[mealTypeKey] || []; // Ensure currentMeals is an array
+        const currentMeals = daily[mealTypeKey] || []; 
         const updatedMeals = [...currentMeals, newRecipe];
         return { ...daily, [mealTypeKey]: updatedMeals };
       }
@@ -228,17 +230,33 @@ export default function GeneratedMealPlan() {
   }
 
   if (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0) {
-     return (
+    if (!activePlanName) {
+      // Case 1: No plan is active.
+      return (
         <div className="mt-12 text-center py-10">
-            <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-            <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
-            <p className="text-lg text-muted-foreground mb-6">
-            {activePlanName ? `The plan "${activePlanName}" might be empty or encountered an issue.` : "No active meal plan selected."}
-            <br/>
+          <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
+          <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
+          <p className="text-lg text-muted-foreground mb-6">
             Please generate a new meal plan or select an existing one using the options in the header.
-            </p>
+          </p>
         </div>
-    );
+      );
+    } else {
+      // Case 2: A plan is "active" (activePlanName is set), but it's empty or couldn't be loaded.
+      return (
+        <div className="mt-12 text-center py-10">
+          <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
+          <h2 className="text-3xl font-semibold text-primary mb-3">
+            Plan "{activePlanName}" is Empty or Not Found
+          </h2>
+          <p className="text-lg text-muted-foreground mb-6">
+            The selected meal plan "{activePlanName}" might be empty, not found in the database, or could not be loaded.
+            <br />
+            You can try selecting another plan, generating it if it's new, or adding meals to it if it's just empty.
+          </p>
+        </div>
+      );
+    }
   }
 
   return (
@@ -268,7 +286,7 @@ export default function GeneratedMealPlan() {
           />
         ))}
       </div>
-      {addRecipeTarget && mealPlan && ( // Ensure mealPlan and thus planDescription is available
+      {addRecipeTarget && mealPlan && ( 
         <AddRecipeDialog
           isOpen={isAddRecipeDialogOpen}
           onClose={() => {
@@ -278,9 +296,10 @@ export default function GeneratedMealPlan() {
           onSubmit={handleAddNewRecipeSubmit}
           mealTypeTitle={addRecipeTarget.mealTypeTitle}
           day={addRecipeTarget.day}
-          planDescription={mealPlan.planDescription || ""} // Pass planDescription
+          planDescription={mealPlan.planDescription || ""} 
         />
       )}
     </div>
   );
 }
+
