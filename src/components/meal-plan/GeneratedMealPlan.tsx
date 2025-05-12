@@ -17,7 +17,7 @@ import {
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import { usePlanList } from '@/contexts/PlanListContext'; // Add import
+import { usePlanList } from '@/contexts/PlanListContext'; 
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
@@ -25,7 +25,7 @@ export default function GeneratedMealPlan() {
   const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError, setIsLoading: setMealPlanLoading } = useMealPlan();
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
-  const { fetchPlanNames: refreshPlanListSelector } = usePlanList(); // Use context
+  const { fetchPlanNames: refreshPlanListSelector } = usePlanList(); 
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
@@ -43,14 +43,12 @@ export default function GeneratedMealPlan() {
         if (result && result.mealPlanData) { 
             planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
         } else { 
-            console.warn(`Plan "${planNameToLoad}" found but data is missing/malformed.`);
+            console.warn(`计划 "${planNameToLoad}" 已找到但数据丢失或格式错误。`);
             planDataToSet = null; 
         }
       } else { 
         if (result && "error" in result) {
-          // Error already logged in UserProfileContext or other places if it's a general failure.
-          // For this specific load, we just note it.
-          console.warn(`Could not retrieve plan "${planNameToLoad}" for display: ${result.error}.`);
+          console.warn(`无法检索计划 "${planNameToLoad}" 进行显示: ${result.error}。`);
         }
         planDataToSet = null; 
       }
@@ -72,8 +70,8 @@ export default function GeneratedMealPlan() {
   const saveCurrentPlanToDb = async (updatedMealPlanData: GenerateWeeklyMealPlanOutput) => {
     if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
         toast({
-            title: "Cannot Save Plan",
-            description: "Active plan name or description is missing. Cannot save changes.",
+            title: "无法保存计划",
+            description: "当前计划名称或描述缺失。无法保存更改。",
             variant: "destructive",
         });
         return;
@@ -82,14 +80,14 @@ export default function GeneratedMealPlan() {
     try {
       await saveMealPlanToDb(activePlanName, mealPlan.planDescription, updatedMealPlanData);
       toast({
-        title: "Plan Updated",
-        description: "Your meal plan changes have been saved to the database.",
+        title: "计划已更新",
+        description: "您的膳食计划更改已保存到数据库。",
       });
     } catch (dbError: any) {
-      console.error("Failed to save meal plan to DB:", dbError); 
+      console.error("保存膳食计划到数据库失败:", dbError); 
       toast({
-        title: "Database Error",
-        description: dbError.message || "Could not save changes to the database.",
+        title: "数据库错误",
+        description: dbError.message || "无法将更改保存到数据库。",
         variant: "destructive",
       });
     }
@@ -97,7 +95,7 @@ export default function GeneratedMealPlan() {
 
   const handleClearPlan = async () => {
     if (!activePlanName) {
-        toast({ title: "No Active Plan", description: "There is no active plan to remove.", variant: "default"});
+        toast({ title: "无活动计划", description: "没有活动的计划可以移除。", variant: "default"});
         return;
     }
     setMealPlanLoading(true);
@@ -109,25 +107,25 @@ export default function GeneratedMealPlan() {
       const result = await deleteMealPlanByNameAction(planNameToDelete);
       if (result.success) {
         toast({
-          title: "Plan Removed",
-          description: `The meal plan "${planNameToDelete}" has been removed.`,
+          title: "计划已移除",
+          description: `膳食计划 "${planNameToDelete}" 已被移除。`,
         });
         setMealPlan(null); 
         setActivePlanName(null); 
-        await refreshPlanListSelector(); // Refresh the plan list in the header selector
+        await refreshPlanListSelector(); 
       } else {
-        setError(result.error || "Failed to remove plan from database.");
+        setError(result.error || "从数据库移除计划失败。");
         toast({
-          title: "Error Removing Plan",
-          description: result.error || "Could not remove the plan from the database.",
+          title: "移除计划错误",
+          description: result.error || "无法从数据库中移除该计划。",
           variant: "destructive",
         });
       }
     } catch (e: any) {
-      const errorMessage = e.message || "An unexpected error occurred while removing the plan.";
+      const errorMessage = e.message || "移除计划时发生意外错误。";
       setError(errorMessage);
       toast({
-        title: "Removing Error",
+        title: "移除时出错",
         description: errorMessage,
         variant: "destructive",
       });
@@ -152,9 +150,17 @@ export default function GeneratedMealPlan() {
     
     const newMealPlanState: MealPlanData = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
     setMealPlan(newMealPlanState);
+    
+    const mealTypeTranslations: {[key: string]: string} = {
+        'breakfast': '早餐',
+        'lunch': '午餐',
+        'dinner': '晚餐'
+    };
+    const translatedMealType = mealTypeTranslations[mealTypeKey] || mealTypeKey;
+
     toast({
-      title: "Recipe Deleted",
-      description: `A recipe for ${mealTypeKey} on ${day} has been removed locally. Saving...`,
+      title: "食谱已删除",
+      description: `${day} ${translatedMealType} 的一个食谱已在本地移除。正在保存...`,
     });
     saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
   };
@@ -162,8 +168,8 @@ export default function GeneratedMealPlan() {
   const handleAddMealClick = (day: string, mealTypeKey: MealTypeKey, mealTypeTitle: string) => {
     if (!mealPlan || mealPlan.planDescription === undefined) {
       toast({
-        title: "Cannot Add Recipe",
-        description: "Plan description is missing. AI suggestions may not work correctly.",
+        title: "无法添加食谱",
+        description: "缺少计划描述。AI推荐功能可能无法正常工作。",
         variant: "warning",
       });
     }
@@ -187,9 +193,17 @@ export default function GeneratedMealPlan() {
 
     const newMealPlanState: MealPlanData = { ...mealPlan, weeklyMealPlan: updatedWeeklyMealPlan };
     setMealPlan(newMealPlanState);
+
+    const mealTypeTranslations: {[key: string]: string} = {
+        'breakfast': '早餐',
+        'lunch': '午餐',
+        'dinner': '晚餐'
+    };
+    const translatedMealType = mealTypeTranslations[mealTypeKey] || mealTypeKey;
+
     toast({
-      title: "Recipe Added",
-      description: `${newRecipe.recipeName} added locally for ${mealTypeKey} on ${day}. Saving...`,
+      title: "食谱已添加",
+      description: `${newRecipe.recipeName} 已为 ${day} ${translatedMealType} 在本地添加。正在保存...`,
     });
     saveCurrentPlanToDb({ weeklyMealPlan: updatedWeeklyMealPlan });
     setIsAddRecipeDialogOpen(false);
@@ -200,7 +214,7 @@ export default function GeneratedMealPlan() {
     return (
       <div className="space-y-4 mt-6">
         <h2 className="text-xl font-semibold text-center text-primary mb-3">
-          Loading your meal plan...
+          正在加载您的膳食计划...
         </h2>
         {[...Array(2)].map((_, i) => ( 
           <div key={i} className="bg-card p-3 rounded-lg shadow-md space-y-2.5">
@@ -221,20 +235,16 @@ export default function GeneratedMealPlan() {
   }
 
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
-    // This case handles explicit errors during plan loading IF no plan data is available.
-    // If a plan IS available but an error occurred, it might still display the stale plan.
-    // The UserProfileContext and initial load sequence aim to prevent showing errors directly
-    // and prefer the "No Meal Plan Active!" message if appropriate.
     return (
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-5 w-5" />
-        <AlertTitle>Error Loading Plan</AlertTitle>
+        <AlertTitle>加载计划出错</AlertTitle>
         <AlertDescription>{mealPlanError}</AlertDescription>
         <Button onClick={() => {
           setError(null); 
           loadPlan(activePlanName); 
         }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
-          Retry Load
+          重试加载
         </Button>
       </Alert>
     );
@@ -244,9 +254,9 @@ export default function GeneratedMealPlan() {
     return (
       <div className="mt-12 text-center py-10">
         <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-        <h2 className="text-3xl font-semibold text-primary mb-3">No Meal Plan Active!</h2>
+        <h2 className="text-3xl font-semibold text-primary mb-3">当前无活动膳食计划！</h2>
         <p className="text-lg text-muted-foreground mb-6">
-          Please generate a new meal plan or select an existing one using the options in the header.
+          请在头部菜单中生成新的膳食计划或选择一个已有的计划。
         </p>
       </div>
     );
@@ -256,7 +266,7 @@ export default function GeneratedMealPlan() {
     <div className="mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
         <h2 className="text-2xl font-bold text-primary">
-          {activePlanName ? `Active Plan: ${activePlanName}` : "Your Weekly Meal Plan"}
+          {activePlanName ? `当前计划: ${activePlanName}` : "您的每周膳食计划"}
         </h2>
         {activePlanName && ( 
           <Button
@@ -267,7 +277,7 @@ export default function GeneratedMealPlan() {
               disabled={isLoading} 
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-              {isLoading ? "Processing..." : "Remove All"}
+              {isLoading ? "处理中..." : "全部移除"}
           </Button>
         )}
       </div>
@@ -289,7 +299,7 @@ export default function GeneratedMealPlan() {
             setAddRecipeTarget(null);
           }}
           onSubmit={handleAddNewRecipeSubmit}
-          mealTypeTitle={addRecipeTarget.mealTypeTitle}
+          mealTypeTitle={addRecipeTarget.mealTypeTitle} // This is already Chinese from DailyMealCard
           day={addRecipeTarget.day}
           planDescription={mealPlan.planDescription || ""} 
         />
@@ -297,3 +307,4 @@ export default function GeneratedMealPlan() {
     </div>
   );
 }
+

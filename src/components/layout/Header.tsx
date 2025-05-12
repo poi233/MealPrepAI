@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UtensilsCrossed, Sparkles, ListFilter } from 'lucide-react';
 import GenerateMealPlanDialog from '@/components/meal-plan/GenerateMealPlanDialog';
 import { useUserProfile } from '@/contexts/UserProfileContext';
-import { usePlanList } from '@/contexts/PlanListContext'; // Add import
+import { usePlanList } from '@/contexts/PlanListContext'; 
 import {
   Select,
   SelectContent,
@@ -22,27 +22,24 @@ import { normalizeStringInput } from '@/lib/utils';
 export default function Header() {
   const [isGeneratePlanDialogOpen, setIsGeneratePlanDialogOpen] = useState(false);
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
-  const { savedPlanNames, isLoadingPlans, fetchPlanNames } = usePlanList(); // Use context
+  const { savedPlanNames, isLoadingPlans, fetchPlanNames } = usePlanList(); 
   const { toast } = useToast();
 
-  // The useEffect that previously called a local fetchPlanNames is removed.
-  // The PlanListProvider now handles the initial fetch.
-  // Subsequent fetches are triggered by onPlanGenerated or after deletion via context.
 
   const handlePlanChange = (newPlanName: string) => {
     if (newPlanName === "---clear---") { 
         setActivePlanName(null);
         toast({
-            title: "Active Plan Cleared",
-            description: `No plan is currently active. Generate or select one.`,
+            title: "当前计划已清除",
+            description: `当前没有活动的计划。请生成或选择一个。`,
         });
         return;
     }
     const normalizedNewPlan = normalizeStringInput(newPlanName);
     setActivePlanName(normalizedNewPlan); 
     toast({
-      title: "Plan Switched",
-      description: `Loading meal plan: ${normalizedNewPlan}.`,
+      title: "计划已切换",
+      description: `正在加载膳食计划: ${normalizedNewPlan}。`,
     });
   };
   
@@ -54,7 +51,7 @@ export default function Header() {
         <div className="container mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
           <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
             <UtensilsCrossed size={28} />
-            <span>MealPrepAI</span>
+            <span>膳食规划AI</span>
           </Link>
           <nav className="flex items-center gap-2 flex-wrap">
             {(savedPlanNames.length > 0 || isLoadingPlans || isProfileLoading) && (
@@ -65,15 +62,15 @@ export default function Header() {
                 >
                   <SelectTrigger className="w-auto min-w-[180px] max-w-[250px] h-9 text-xs sm:text-sm border-primary/50 text-primary focus:ring-primary/50">
                      <ListFilter className="mr-1.5 h-3.5 w-3.5 opacity-80" />
-                    <SelectValue placeholder="Switch Active Plan..." />
+                    <SelectValue placeholder="切换当前计划..." />
                   </SelectTrigger>
                   <SelectContent>
                     {isLoadingPlans || isProfileLoading ? (
-                      <SelectItem value="loading" disabled className="text-xs sm:text-sm">Loading plans...</SelectItem>
+                      <SelectItem value="loading" disabled className="text-xs sm:text-sm">加载计划中...</SelectItem>
                     ) : (
                       <>
                         {savedPlanNames.length === 0 && !activePlanName && (
-                           <SelectItem value="no-plans" disabled className="text-xs sm:text-sm">No saved plans yet.</SelectItem>
+                           <SelectItem value="no-plans" disabled className="text-xs sm:text-sm">暂无已保存的计划。</SelectItem>
                         )}
                         {savedPlanNames.map((name) => (
                           <SelectItem key={name} value={name} className="text-xs sm:text-sm">
@@ -81,7 +78,7 @@ export default function Header() {
                           </SelectItem>
                         ))}
                         {activePlanName && savedPlanNames.length > 0 && (
-                            <SelectItem value="---clear---" className="text-xs sm:text-sm text-destructive/80">Clear Active Plan</SelectItem>
+                            <SelectItem value="---clear---" className="text-xs sm:text-sm text-destructive/80">清除当前计划</SelectItem>
                         )}
                       </>
                     )}
@@ -94,7 +91,7 @@ export default function Header() {
               className="border-primary text-primary hover:bg-primary/10 h-9 text-xs sm:text-sm"
             >
               <Sparkles className="mr-1.5 h-4 w-4" />
-              Generate Meal Plan
+              生成膳食计划
             </Button>
           </nav>
         </div>
@@ -103,9 +100,10 @@ export default function Header() {
         isOpen={isGeneratePlanDialogOpen}
         onClose={() => setIsGeneratePlanDialogOpen(false)}
         onPlanGenerated={async (newlyGeneratedPlanName) => {
-          await fetchPlanNames(); // Call context's fetchPlanNames
+          await fetchPlanNames(); 
         }}
       />
     </>
   );
 }
+

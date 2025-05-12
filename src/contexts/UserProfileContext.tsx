@@ -34,33 +34,27 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
           setActivePlanNameState(normalizedDbPlanName);
           localStorage.setItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME, normalizedDbPlanName);
         } else {
-          // No active plan in DB or error fetching it, try localStorage as a fallback
-          // This case also handles if getActiveMealPlanAction returned an error object
           const storedPlanName = localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
           if (storedPlanName) {
             setActivePlanNameState(normalizeStringInput(storedPlanName));
-            // Optionally, attempt to re-validate this localStorage plan with the DB here or assume it's stale if DB had no active.
-            // For now, if DB has no active plan, we clear localStorage too.
             if (!activePlanResult || ("error" in activePlanResult) || !activePlanResult.planName) {
                 setActivePlanNameState(null);
                 localStorage.removeItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
             }
           } else {
-            setActivePlanNameState(null); // No active plan in DB and none in localStorage
+            setActivePlanNameState(null); 
           }
            if (activePlanResult && "error" in activePlanResult) {
-            console.warn("Error fetching active plan from DB on initial load:", activePlanResult.error);
-            // Don't toast here, UI will show "no plan"
+            console.warn("从数据库加载初始活动计划时出错:", activePlanResult.error);
           }
         }
       } catch (e) {
-        console.error("Exception during initial active plan load:", e);
-        // Fallback to localStorage or null if DB call itself fails
+        console.error("初始活动计划加载期间发生异常:", e);
         const storedPlanName = localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
         setActivePlanNameState(storedPlanName ? normalizeStringInput(storedPlanName) : null);
          toast({
-            title: "Loading Error",
-            description: "Could not verify active plan with the database. Displaying local status.",
+            title: "加载错误",
+            description: "无法从数据库验证当前计划。正在显示本地状态。",
             variant: "destructive",
           });
       } finally {
@@ -70,16 +64,16 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
 
     loadActivePlanFromDbOrLocalStorage();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Toast not needed in deps array for this initial load effect
+  }, []); 
 
   const setActivePlanNameCallback = useCallback(async (planName: string | null) => {
     const normalizedPlanName = planName ? normalizeStringInput(planName) : null;
     
-    setActivePlanNameState(normalizedPlanName); // Optimistic update of local state
+    setActivePlanNameState(normalizedPlanName); 
     
     setIsLoading(true);
     try {
-      const actionPlanName = normalizedPlanName || ""; // API expects "" to clear active plan
+      const actionPlanName = normalizedPlanName || ""; 
       const result = await setActivePlanAction(actionPlanName);
 
       if (result.success) {
@@ -89,28 +83,23 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
           localStorage.removeItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
         }
       } else {
-        console.error("Failed to set active plan in DB:", result.error);
+        console.error("在数据库中设置活动计划失败:", result.error);
         toast({
-            title: "Database Sync Error",
-            description: `Could not update active plan status: ${result.error || "Unknown error"}`,
+            title: "数据库同步错误",
+            description: `无法更新当前计划状态: ${result.error || "未知错误"}`,
             variant: "destructive",
         });
-        // Revert optimistic update if DB operation failed
-        // This requires knowing the *previous* active plan name, or re-fetching.
-        // For simplicity now, we keep the optimistic update but show an error.
-        // A more robust solution might involve re-fetching the true active plan from DB.
         const previousPlanName = localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
         setActivePlanNameState(previousPlanName ? normalizeStringInput(previousPlanName) : null);
       }
     } catch (error) {
-      console.error("Error calling setActivePlanAction:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      console.error("调用 setActivePlanAction 时出错:", error);
+      const errorMessage = error instanceof Error ? error.message : "发生未知错误。";
       toast({
-        title: "Operation Error",
-        description: `Failed to update active plan status: ${errorMessage}`,
+        title: "操作错误",
+        description: `更新当前计划状态失败: ${errorMessage}`,
         variant: "destructive",
       });
-      // Revert optimistic update
       const previousPlanName = localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_PLAN_NAME);
       setActivePlanNameState(previousPlanName ? normalizeStringInput(previousPlanName) : null);
     } finally {
@@ -128,7 +117,7 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
 export function useUserProfile() {
   const context = useContext(UserProfileContext);
   if (context === undefined) {
-    throw new Error('useUserProfile must be used within a UserProfileProvider');
+    throw new Error('useUserProfile 必须在 UserProfileProvider 中使用');
   }
   return context;
 }

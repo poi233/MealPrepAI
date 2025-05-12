@@ -10,16 +10,15 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { MealSchema, type Meal } from '@/ai/schemas/meal'; // Import from shared file
+import { MealSchema, type Meal } from '@/ai/schemas/meal'; 
 
 const SuggestRecipeInputSchema = z.object({
-  day: z.string().describe('The day of the week for which the recipe is being suggested (e.g., Monday).'),
-  mealType: z.string().describe('The type of meal (e.g., Breakfast, Lunch, Dinner).'),
-  planDescription: z.string().describe('The overall meal plan description, including dietary preferences and goals.'),
+  day: z.string().describe('建议食谱的星期几（例如：星期一）。'),
+  mealType: z.string().describe('膳食类型（例如：早餐、午餐、晚餐）。'), // Note: this input mealType might be Chinese already from UI
+  planDescription: z.string().describe('整体膳食计划描述，包括饮食偏好和目标。'),
 });
 export type SuggestRecipeInput = z.infer<typeof SuggestRecipeInputSchema>;
 
-// Output is a single Meal
 export type SuggestRecipeOutput = Meal;
 
 export async function suggestRecipe(
@@ -31,25 +30,25 @@ export async function suggestRecipe(
 const prompt = ai.definePrompt({
   name: 'suggestRecipePrompt',
   input: {schema: SuggestRecipeInputSchema},
-  output: {schema: MealSchema}, // Output a single Meal object
-  prompt: `You are a creative culinary assistant.
-Given the day of the week, the meal type, and the user's overall meal plan description (including dietary preferences), suggest one suitable and somewhat random recipe.
-Your suggestion should include the recipe name, a detailed list of ingredients, and comprehensive preparation instructions.
+  output: {schema: MealSchema}, 
+  prompt: `你是一位富有创意的烹饪助手。
+根据星期几、膳食类型和用户的整体膳食计划描述（包括饮食偏好），推荐一个合适且略带随机性的食谱。
+你的推荐应包括食谱名称、详细的配料清单和全面的准备步骤。请用中文回答所有内容。
 
-Day: {{{day}}}
-Meal Type: {{{mealType}}}
-Plan Description: {{{planDescription}}}
+星期: {{{day}}}
+膳食类型: {{{mealType}}}
+计划描述: {{{planDescription}}}
 
-For ingredients, provide specific quantities (e.g., "1 cup flour", "2 large eggs, lightly beaten", "100g chicken breast, diced").
-For instructions, provide clear, step-by-step guidance, including cooking times and temperatures where applicable. Number the steps.
+关于配料，请提供具体的用量（例如，“面粉1杯”，“2个大鸡蛋，打散”，“鸡胸肉100克，切丁”）。
+关于步骤，请提供清晰、分步的指导，包括适用的烹饪时间和温度。请给步骤编号。
 
-Provide a single, complete recipe. Ensure the output is valid JSON conforming to the Meal schema:
+提供一个完整的食谱。确保输出是符合Meal模式的有效JSON：
 {
-  "recipeName": "Suggested Detailed Recipe Name",
-  "ingredients": ["detailed ingredient 1 (e.g., 1 cup oats)", "detailed ingredient 2 (e.g., 1/2 cup mixed berries, fresh or frozen)", ...],
-  "instructions": "1. First step with details...\\n2. Second step with cooking time and temperature...\\n3. Third step..."
+  "recipeName": "推荐的详细食谱名称（中文）",
+  "ingredients": ["详细配料1 (例如, 燕麦1杯)", "详细配料2 (例如, 混合浆果1/2杯，新鲜或冷冻的)", ...],
+  "instructions": "1. 第一步详细说明...\n2. 第二步说明烹饪时间和温度...\n3. 第三步..."
 }
-Be creative and ensure the recipe aligns with the provided plan description.
+要有创意，并确保食谱符合提供的计划描述。
 `,
 });
 
@@ -62,7 +61,7 @@ const suggestRecipeFlow = ai.defineFlow(
   async input => {
     const {output} = await prompt(input);
     if (!output) {
-      throw new Error('AI failed to suggest a recipe.');
+      throw new Error('AI未能推荐食谱。');
     }
     return output;
   }

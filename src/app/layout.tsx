@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
 import { MealPlanProvider } from '@/contexts/MealPlanContext';
-import { PlanListProvider } from '@/contexts/PlanListContext'; // Add import
+import { PlanListProvider } from '@/contexts/PlanListContext'; 
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -14,8 +14,8 @@ const openSans = Open_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'MealPrepAI',
-  description: 'Generate weekly meal plans with AI',
+  title: '膳食规划AI',
+  description: '通过AI生成每周膳食计划',
 };
 
 export default function RootLayout({
@@ -24,10 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={openSans.variable}>
+    <html lang="zh-CN" className={openSans.variable}> {/* Set lang to Chinese */}
       <body className="antialiased font-sans">
         <UserProfileProvider>
-          <PlanListProvider> {/* Add Provider */}
+          <PlanListProvider> 
             <MealPlanProvider>
               <Header />
               <main className="container mx-auto px-4 py-8">
@@ -35,9 +35,10 @@ export default function RootLayout({
               </main>
               <Toaster />
             </MealPlanProvider>
-          </PlanListProvider> {/* Close Provider */}
+          </PlanListProvider> 
         </UserProfileProvider>
       </body>
     </html>
   );
 }
+

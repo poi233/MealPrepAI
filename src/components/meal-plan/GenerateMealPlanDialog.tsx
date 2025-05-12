@@ -38,15 +38,15 @@ const mealPlanFormSchema = z.object({
   planName: z.string()
     .transform(val => normalizeStringInput(val))
     .pipe(z.string().min(1, {
-        message: "Plan name is required.",
+        message: "计划名称不能为空。",
     }).max(100, {
-        message: "Plan name must not exceed 100 characters.",
+        message: "计划名称不能超过100个字符。",
     })),
   planDescription: z.string()
-    .min(10, { // Min length for a meaningful description
-        message: "Plan description must be at least 10 characters.",
+    .min(10, { 
+        message: "计划描述至少需要10个字符。",
     }).max(1000, {
-        message: "Plan description must not exceed 1000 characters.",
+        message: "计划描述不能超过1000个字符。",
     }),
 });
 
@@ -58,8 +58,8 @@ interface GenerateMealPlanDialogProps {
   onPlanGenerated?: (newlyGeneratedPlanName: string) => void; 
 }
 
-const DEFAULT_PLAN_NAME = "My Default Plan";
-const DEFAULT_PLAN_DESCRIPTION = "A balanced and healthy weekly meal plan. Please include a variety of protein sources, vegetables, and whole grains. Avoid excessive sugar and processed foods.";
+const DEFAULT_PLAN_NAME = "我的默认计划";
+const DEFAULT_PLAN_DESCRIPTION = "一个均衡健康的每周膳食计划。请包含多种蛋白质来源、蔬菜和全谷物。避免过多的糖和加工食品。请用中文生成食谱详情。";
 
 export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerated }: GenerateMealPlanDialogProps) {
   const { toast } = useToast();
@@ -76,17 +76,13 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
 
   useEffect(() => {
     if (isOpen) {
-      // If there's an active plan, prefill with its name and description if desired,
-      // or always start with defaults for a "new" plan generation.
-      // For now, let's stick to defaults or last user input if dialog was re-opened.
-      // Resetting to defaults each time might be better for "Generate New"
       form.reset({
         planName: currentActivePlanName || DEFAULT_PLAN_NAME,
-        planDescription: DEFAULT_PLAN_DESCRIPTION // Or fetch description of currentActivePlanName
+        planDescription: DEFAULT_PLAN_DESCRIPTION 
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, currentActivePlanName]); // form not needed in dep array for reset
+  }, [isOpen, currentActivePlanName]); 
 
   async function onSubmit(values: MealPlanFormValues) {
     setMealPlanLoading(true);
@@ -100,9 +96,6 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
     };
 
     try {
-      // Check if plan with this name already exists to inform user, or just overwrite.
-      // For now, we will overwrite as per saveMealPlanToDb's ON CONFLICT.
-      // A small toast could inform if it's an update.
       const existingPlan = await getSavedMealPlanByNameAction(normalizedPlanName);
       const isUpdate = existingPlan && !("error" in existingPlan);
 
@@ -111,17 +104,17 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
       if ("error" in generationResult) {
         setMealPlanError(generationResult.error);
         toast({
-          title: "Error Generating Plan",
+          title: "生成计划出错",
           description: generationResult.error,
           variant: "destructive",
         });
-        setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); // Clear plan on error
+        setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); 
       } else {
         setMealPlan({ ...generationResult, planDescription: values.planDescription });
-        setActivePlanName(normalizedPlanName); // This will also trigger DB update for active status
+        setActivePlanName(normalizedPlanName); 
         toast({
-          title: isUpdate ? "Meal Plan Updated!" : "Meal Plan Generated!",
-          description: `Your personalized 7-day meal plan "${normalizedPlanName}" is ready.`,
+          title: isUpdate ? "膳食计划已更新！" : "膳食计划已生成！",
+          description: `您的个性化7天膳食计划 "${normalizedPlanName}" 已准备就绪。`,
         });
         if (onPlanGenerated) {
           onPlanGenerated(normalizedPlanName);
@@ -129,11 +122,11 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
         onClose(); 
       }
     } catch (e: any) { 
-      const errorMessage = e.message || "An unexpected error occurred.";
+      const errorMessage = e.message || "发生意外错误。";
       setMealPlanError(errorMessage); 
-      setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); // Clear plan on error
+      setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); 
       toast({
-        title: "Operation Error",
+        title: "操作错误",
         description: errorMessage,
         variant: "destructive",
       });
@@ -148,10 +141,10 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Generate or Update Meal Plan</DialogTitle>
+          <DialogTitle>生成或更新膳食计划</DialogTitle>
           <DialogDescription>
-            Enter a name for your plan and describe your dietary needs.
-            If a plan with this name exists, it will be updated.
+            为您的计划输入名称并描述您的饮食需求。
+            如果同名计划已存在，则会更新它。
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -161,12 +154,12 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
               name="planName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">Plan Name</FormLabel>
+                  <FormLabel className="text-base font-semibold">计划名称</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., My Weekly Healthy Mix" {...field} />
+                    <Input placeholder="例如：我的健康周餐" {...field} />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    A unique name for this meal plan.
+                    此膳食计划的唯一名称。
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -177,16 +170,16 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
               name="planDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">Plan Description (for AI)</FormLabel>
+                  <FormLabel className="text-base font-semibold">计划描述 (供AI使用)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., vegetarian, low-carb, no nuts, high protein, for weight loss, quick meals..."
+                      placeholder="例如：素食、低碳水、无坚果、高蛋白、减肥餐、快手菜... 请用中文生成食谱。"
                       className="min-h-[120px] resize-y text-sm"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    Provide details for the AI to generate your meal plan.
+                    提供详细信息供AI生成您的膳食计划。
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -195,12 +188,12 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
             <DialogFooter className="pt-2">
               <DialogClose asChild>
                 <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
+                  取消
                 </Button>
               </DialogClose>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isMealPlanLoading}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isMealPlanLoading ? "Processing..." : "Generate / Update Plan"}
+                {isMealPlanLoading ? "处理中..." : "生成/更新计划"}
               </Button>
             </DialogFooter>
           </form>
@@ -209,3 +202,4 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
     </Dialog>
   );
 }
+

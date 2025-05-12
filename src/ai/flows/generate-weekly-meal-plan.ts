@@ -13,15 +13,15 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { MealSchema, type Meal } from '@/ai/schemas/meal'; // Import from shared file
+import { MealSchema, type Meal } from '@/ai/schemas/meal'; 
 
-export type { Meal }; // Re-export Meal type for convenience
+export type { Meal }; 
 
 const GenerateWeeklyMealPlanInputSchema = z.object({
   planDescription: z
     .string()
     .describe(
-      'Detailed description of the meal plan to be generated, including dietary preferences, goals, specific requests, etc.'
+      '要生成的膳食计划的详细描述，包括饮食偏好、目标、具体要求等。请确保AI生成的食谱名称、配料、步骤和星期都是中文。'
     ),
 });
 export type GenerateWeeklyMealPlanInput = z.infer<
@@ -29,15 +29,15 @@ export type GenerateWeeklyMealPlanInput = z.infer<
 >;
 
 const DailyMealPlanSchema = z.object({
-  day: z.string().describe('Day of the week (e.g., Monday, Tuesday)'),
-  breakfast: z.array(MealSchema).describe('List of breakfast recipes. Empty array if none planned.'),
-  lunch: z.array(MealSchema).describe('List of lunch recipes. Empty array if none planned.'),
-  dinner: z.array(MealSchema).describe('List of dinner recipes. Empty array if none planned.'),
+  day: z.string().describe('星期几 (例如：星期一, 星期二)'),
+  breakfast: z.array(MealSchema).describe('早餐食谱列表。如果未计划，则为空数组。'),
+  lunch: z.array(MealSchema).describe('午餐食谱列表。如果未计划，则为空数组。'),
+  dinner: z.array(MealSchema).describe('晚餐食谱列表。如果未计划，则为空数组。'),
 });
 export type DailyMealPlan = z.infer<typeof DailyMealPlanSchema>;
 
 const GenerateWeeklyMealPlanOutputSchema = z.object({
-  weeklyMealPlan: z.array(DailyMealPlanSchema).describe('7-day meal plan'),
+  weeklyMealPlan: z.array(DailyMealPlanSchema).describe('7日膳食计划'),
 });
 export type GenerateWeeklyMealPlanOutput = z.infer<
   typeof GenerateWeeklyMealPlanOutputSchema
@@ -53,55 +53,55 @@ const prompt = ai.definePrompt({
   name: 'generateWeeklyMealPlanPrompt',
   input: {schema: GenerateWeeklyMealPlanInputSchema},
   output: {schema: GenerateWeeklyMealPlanOutputSchema},
-  prompt: `You are an expert meal planning AI. Your task is to generate a 7-day meal plan based on the user's provided plan description.
-The output MUST be a valid JSON object.
+  prompt: `你是一位专业的膳食计划AI。你的任务是根据用户提供的计划描述生成一个7天的膳食计划。
+输出必须是有效的JSON对象。所有文本内容（星期、食谱名称、配料、步骤）都应该是中文。
 
-User's Plan Description: {{{planDescription}}}
+用户计划描述: {{{planDescription}}}
 
-Please generate a JSON object with a single top-level key: "weeklyMealPlan".
-The "weeklyMealPlan" value should be an array of 7 objects, one for each day of the week (e.g., "Monday", "Tuesday", ..., "Sunday").
+请生成一个JSON对象，其顶层键为 "weeklyMealPlan"。
+"weeklyMealPlan" 的值应该是一个包含7个对象的数组，每周的每一天（例如，“星期一”，“星期二”，...，“星期日”）一个对象。
 
-Each daily object must have the following keys:
-- "day": A string for the day of the week.
-- "breakfast": An array of meal objects for breakfast. This array can contain multiple recipes. If no breakfast is planned, provide an empty array.
-- "lunch": An array of meal objects for lunch. This array can contain multiple recipes. If no lunch is planned, provide an empty array.
-- "dinner": An array of meal objects for dinner. This array can contain multiple recipes. If no dinner is planned, provide an empty array.
+每个每日对象必须包含以下键：
+- "day": 字符串，表示星期几。
+- "breakfast": 早餐膳食对象的数组。此数组可以包含多个食谱。如果未计划早餐，则提供一个空数组。
+- "lunch": 午餐膳食对象的数组。此数组可以包含多个食谱。如果未计划午餐，则提供一个空数组。
+- "dinner": 晚餐膳食对象的数组。此数组可以包含多个食谱。如果未计划晚餐，则提供一个空数组。
 
-Each meal object within the "breakfast", "lunch", or "dinner" arrays must have the following keys:
-- "recipeName": A string, the name of the recipe (e.g., "Avocado Toast", "Grilled Chicken Salad").
-- "ingredients": An array of strings. Each string should be a detailed ingredient, including quantity and any pre-preparation notes (e.g., "1 cup all-purpose flour", "1/2 cup sugar", "2 large eggs, lightly beaten", "1 medium onion, finely chopped").
-- "instructions": A string detailing comprehensive, step-by-step preparation instructions. Include cooking times and temperatures where applicable. Format instructions clearly, for example, using numbered steps or distinct paragraphs for each step.
+"breakfast"、"lunch" 或 "dinner" 数组中的每个膳食对象必须包含以下键：
+- "recipeName": 字符串，食谱的名称（例如，“牛油果吐司”，“扒鸡胸沙拉”）。
+- "ingredients": 字符串数组。每个字符串应为一个详细的配料，包括数量和任何预处理说明（例如，“中筋面粉1杯”，“白砂糖1/2杯”，“2个大鸡蛋，轻微打散”，“1个中等大小洋葱，切碎”）。
+- "instructions": 详细说明全面、分步的准备说明的字符串。包括适用的烹饪时间和温度。清晰地格式化说明，例如，使用编号步骤或为每个步骤使用不同的段落。
 
-Example of a single meal object:
+单个膳食对象示例：
 {
-  "recipeName": "Classic Pancakes",
+  "recipeName": "经典薄煎饼",
   "ingredients": [
-    "1 1/2 cups all-purpose flour",
-    "3 1/2 teaspoons baking powder",
-    "1 teaspoon salt",
-    "1 tablespoon white sugar",
-    "1 1/4 cups milk",
-    "1 egg",
-    "3 tablespoons butter, melted"
+    "中筋面粉1又1/2杯",
+    "泡打粉3又1/2茶匙",
+    "盐1茶匙",
+    "白砂糖1汤匙",
+    "牛奶1又1/4杯",
+    "鸡蛋1个",
+    "融化黄油3汤匙"
   ],
-  "instructions": "1. In a large bowl, sift together the flour, baking powder, salt and sugar.\\n2. Make a well in the center and pour in the milk, egg and melted butter; mix until smooth.\\n3. Heat a lightly oiled griddle or frying pan over medium high heat.\\n4. Pour or scoop the batter onto the griddle, using approximately 1/4 cup for each pancake. Brown on both sides and serve hot."
+  "instructions": "1. 在一个大碗里，将面粉、泡打粉、盐和糖筛在一起。\n2. 在中心挖一个坑，倒入牛奶、鸡蛋和融化的黄油；搅拌至顺滑。\n3. 用中高火加热轻微涂油的煎锅或平底锅。\n4. 将面糊倒入或舀入煎锅，每个薄煎饼约用1/4杯。两面煎至金黄即可食用。"
 }
 
-Ensure all string values are properly escaped for JSON. For example, a day's plan might look like:
+确保所有字符串值都已为JSON正确转义。例如，一天的计划可能如下所示：
 {
-  "day": "Monday",
+  "day": "星期一",
   "breakfast": [
-    { "recipeName": "Oatmeal with Berries", "ingredients": ["1/2 cup rolled oats", "1 cup water or milk", "1/2 cup mixed berries", "1 tbsp honey (optional)"], "instructions": "1. Combine oats and water/milk in a saucepan. Bring to a boil.\\n2. Reduce heat and simmer for 3-5 minutes, stirring occasionally, until thickened.\\n3. Stir in berries and honey if desired. Serve warm." }
+    { "recipeName": "燕麦粥加浆果", "ingredients": ["燕麦片1/2杯", "水或牛奶1杯", "混合浆果1/2杯", "蜂蜜1汤匙（可选）"], "instructions": "1. 将燕麦和水/牛奶在锅中混合。煮沸。\n2. 转小火煮3-5分钟，偶尔搅拌，直至浓稠。\n3. 如果需要，拌入浆果和蜂蜜。趁热食用。" }
   ],
   "lunch": [
-    { "recipeName": "Grilled Chicken Breast", "ingredients": ["1 boneless, skinless chicken breast (approx 150g)", "1 tbsp olive oil", "1/2 tsp salt", "1/4 tsp black pepper", "1/4 tsp paprika"], "instructions": "1. Preheat grill or grill pan to medium-high heat.\\n2. Rub chicken breast with olive oil and season with salt, pepper, and paprika.\\n3. Grill for 6-8 minutes per side, or until internal temperature reaches 165°F (74°C).\\n4. Let rest for 5 minutes before slicing." },
-    { "recipeName": "Simple Side Salad", "ingredients": ["2 cups mixed greens", "1/4 cucumber, sliced", "4-5 cherry tomatoes, halved", "1 tbsp vinaigrette dressing"], "instructions": "1. In a bowl, combine mixed greens, sliced cucumber, and halved cherry tomatoes.\\n2. Drizzle with vinaigrette dressing and toss gently to combine." }
+    { "recipeName": "烤鸡胸肉", "ingredients": ["去骨去皮鸡胸肉1块（约150克）", "橄榄油1汤匙", "盐1/2茶匙", "黑胡椒1/4茶匙", "辣椒粉1/4茶匙"], "instructions": "1. 将烤架或烤盘预热至中高火。\n2. 在鸡胸肉上涂抹橄榄油，并用盐、胡椒和辣椒粉调味。\n3. 每面烤6-8分钟，或直至内部温度达到165°F（74°C）。\n4. 静置5分钟后再切片。" },
+    { "recipeName": "简易沙拉", "ingredients": ["混合生菜叶2杯", "黄瓜1/4根，切片", "小番茄4-5个，对半切", "油醋汁1汤匙"], "instructions": "1. 在碗中混合生菜叶、黄瓜片和小番茄丁。\n2. 淋上油醋汁，轻轻拌匀即可。" }
   ],
   "dinner": [
-    { "recipeName": "Salmon with Roasted Asparagus", "ingredients": ["1 salmon fillet (approx 150g)", "1 bunch asparagus, trimmed", "1 tbsp olive oil", "1/2 lemon, juiced", "Salt and pepper to taste"], "instructions": "1. Preheat oven to 400°F (200°C).\\n2. Toss asparagus with 1/2 tbsp olive oil, salt, and pepper. Spread on a baking sheet.\\n3. Rub salmon fillet with remaining olive oil, lemon juice, salt, and pepper. Place on the same baking sheet.\\n4. Roast for 12-15 minutes, or until salmon is cooked through and asparagus is tender-crisp." }
+    { "recipeName": "三文鱼配烤芦笋", "ingredients": ["三文鱼柳1块（约150克）", "芦笋1把，修剪", "橄榄油1汤匙", "柠檬汁1/2个量", "盐和胡椒适量"], "instructions": "1. 将烤箱预热至400°F（200°C）。\n2. 将芦笋与1/2汤匙橄榄油、盐和胡椒拌匀。铺在烤盘上。\n3. 在三文鱼柳上涂抹剩余的橄榄油、柠檬汁、盐和胡椒。放在同一烤盘上。\n4. 烤12-15分钟，或直至三文鱼熟透，芦笋变软脆。" }
   ]
 }
-Ensure your entire response is a single JSON object starting with { and ending with }.
+确保您的整个响应是一个以 { 开始并以 } 结束的JSON对象。
 `,
 });
 
@@ -134,11 +134,9 @@ const generateWeeklyMealPlanFlow = ai.defineFlow(
     }
     
     if (!processedOutput || !processedOutput.weeklyMealPlan || processedOutput.weeklyMealPlan.length !== 7) {
-        console.warn("AI generated an invalid or incomplete weekly meal plan structure.", processedOutput);
-        // Fallback to a default empty structure if the AI fails significantly, rather than throwing.
-        // This allows the UI to show "empty" rather than a hard error if the AI response is malformed.
-         return {
-            weeklyMealPlan: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => ({
+        console.warn("AI 生成了无效或不完整的每周膳食计划结构。", processedOutput);
+         return { // AI生成的星期名称应该已经是中文了
+            weeklyMealPlan: ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"].map(day => ({
                 day,
                 breakfast: [],
                 lunch: [],

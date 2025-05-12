@@ -24,7 +24,7 @@ export function PlanListProvider({ children }: { children: React.ReactNode }) {
     const result = await getAllSavedMealPlanNamesAction();
     if ("error" in result) {
       toast({
-        title: "Error loading saved plan names",
+        title: "加载已保存计划列表错误",
         description: result.error,
         variant: "destructive",
       });
@@ -35,7 +35,6 @@ export function PlanListProvider({ children }: { children: React.ReactNode }) {
     setIsLoadingPlans(false);
   }, [toast]);
 
-  // Initial fetch when the provider mounts
   useEffect(() => {
     fetchPlanNames();
   }, [fetchPlanNames]);
@@ -51,7 +50,8 @@ export function PlanListProvider({ children }: { children: React.ReactNode }) {
 export function usePlanList() {
   const context = useContext(PlanListContext);
   if (context === undefined) {
-    throw new Error('usePlanList must be used within a PlanListProvider');
+    throw new Error('usePlanList 必须在 PlanListProvider 中使用');
   }
   return context;
 }
+
