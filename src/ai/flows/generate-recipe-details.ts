@@ -32,16 +32,19 @@ const prompt = ai.definePrompt({
   name: 'generateRecipeDetailsPrompt',
   input: {schema: GenerateRecipeDetailsInputSchema},
   output: {schema: GenerateRecipeDetailsOutputSchema},
-  prompt: `You are a culinary assistant. Given a recipe name, provide a list of ingredients and cooking instructions.
+  prompt: `You are a culinary assistant. Given a recipe name, provide a detailed list of ingredients and comprehensive cooking instructions.
 Recipe Name: {{{recipeName}}}
+
+For ingredients, provide specific quantities (e.g., "1 cup flour", "2 large eggs, lightly beaten", "100g chicken breast, diced").
+For instructions, provide clear, step-by-step guidance, including cooking times and temperatures where applicable. Number the steps.
 
 Output the ingredients as an array of strings and the instructions as a single string.
 Ensure the output is valid JSON conforming to the following schema:
 {
-  "ingredients": ["ingredient 1", "ingredient 2", ...],
-  "instructions": "Step 1...\nStep 2...\nStep 3..."
+  "ingredients": ["detailed ingredient 1 (e.g., 1 cup flour)", "detailed ingredient 2 (e.g., 2 large eggs, beaten)", ...],
+  "instructions": "1. First step details...\\n2. Second step details including temperature and time...\\n3. Third step..."
 }
-Provide a typical, common recipe for the given name.
+Provide a typical, common, and well-detailed recipe for the given name.
 `,
 });
 
@@ -59,3 +62,4 @@ const generateRecipeDetailsFlow = ai.defineFlow(
     return output;
   }
 );
+

@@ -34,17 +34,20 @@ const prompt = ai.definePrompt({
   output: {schema: MealSchema}, // Output a single Meal object
   prompt: `You are a creative culinary assistant.
 Given the day of the week, the meal type, and the user's overall meal plan description (including dietary preferences), suggest one suitable and somewhat random recipe.
-Your suggestion should include the recipe name, a list of ingredients, and preparation instructions.
+Your suggestion should include the recipe name, a detailed list of ingredients, and comprehensive preparation instructions.
 
 Day: {{{day}}}
 Meal Type: {{{mealType}}}
 Plan Description: {{{planDescription}}}
 
+For ingredients, provide specific quantities (e.g., "1 cup flour", "2 large eggs, lightly beaten", "100g chicken breast, diced").
+For instructions, provide clear, step-by-step guidance, including cooking times and temperatures where applicable. Number the steps.
+
 Provide a single, complete recipe. Ensure the output is valid JSON conforming to the Meal schema:
 {
-  "recipeName": "Suggested Recipe Name",
-  "ingredients": ["ingredient 1", "ingredient 2", ...],
-  "instructions": "Step 1...\nStep 2...\nStep 3..."
+  "recipeName": "Suggested Detailed Recipe Name",
+  "ingredients": ["detailed ingredient 1 (e.g., 1 cup oats)", "detailed ingredient 2 (e.g., 1/2 cup mixed berries, fresh or frozen)", ...],
+  "instructions": "1. First step with details...\\n2. Second step with cooking time and temperature...\\n3. Third step..."
 }
 Be creative and ensure the recipe aligns with the provided plan description.
 `,
@@ -64,3 +67,4 @@ const suggestRecipeFlow = ai.defineFlow(
     return output;
   }
 );
+
