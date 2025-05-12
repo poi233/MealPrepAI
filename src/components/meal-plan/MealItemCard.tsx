@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { ListChecks, BookOpen, Trash2, Edit3 } from "lucide-react";
+import React from 'react'; // Import React for React.Fragment
 
 interface MealItemCardProps {
   meal: Meal;
@@ -81,9 +82,16 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
               <BookOpen className="mr-1 h-3 w-3" /> 制作步骤
             </AccordionTrigger>
             <AccordionContent className="pt-0.5 pb-1">
-              <p className="text-xs text-muted-foreground whitespace-pre-line">
-                {meal?.instructions || "未提供制作步骤。"}
-              </p>
+              {meal?.instructions ? (
+                meal.instructions.split('\n').map((line, index) => (
+                  // Each line becomes a paragraph. Handle empty lines to preserve spacing.
+                  <p key={index} className="text-xs text-muted-foreground leading-relaxed mb-0.5 last:mb-0">
+                    {line.trim() === '' ? <>&nbsp;</> : line}
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground italic">未提供制作步骤。</p>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
