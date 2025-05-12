@@ -24,7 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={openSans.variable}> {/* Set lang to Chinese */}
+    <html lang="zh-CN" className={openSans.variable}>
+      {/* Next.js automatically manages the <head> tag and its contents. */}
       <body className="antialiased font-sans">
         <UserProfileProvider>
           <PlanListProvider> 
