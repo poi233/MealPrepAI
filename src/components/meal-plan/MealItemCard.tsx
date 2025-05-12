@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Meal } from "@/ai/flows/generate-weekly-meal-plan";
@@ -83,12 +84,9 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
             </AccordionTrigger>
             <AccordionContent className="pt-0.5 pb-1">
               {meal?.instructions ? (
-                meal.instructions.split('\n').map((line, index) => (
-                  // Each line becomes a paragraph. Handle empty lines to preserve spacing.
-                  <p key={index} className="text-xs text-muted-foreground leading-relaxed mb-0.5 last:mb-0">
-                    {line.trim() === '' ? <>&nbsp;</> : line}
-                  </p>
-                ))
+                <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                  {meal.instructions}
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic">未提供制作步骤。</p>
               )}
