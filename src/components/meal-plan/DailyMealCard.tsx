@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { DailyMealPlan, Meal } from "@/ai/flows/generate-weekly-meal-plan";
@@ -23,7 +22,7 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
   ];
 
   const renderMealSlot = (mealTypeKey: MealTypeKey, mealTypeTitle: string, meals: Meal[] = []) => {
-    const lowerMealTypeTitle = mealTypeTitle.toLowerCase();
+    // mealTypeTitle is already Chinese here
     return (
       <div key={`${dailyPlan.day}-${mealTypeKey}`} className="flex flex-col space-y-2 p-2 border rounded-lg bg-card/70 shadow-inner min-h-[120px]">
         <h4 className="font-medium text-sm text-center text-primary capitalize">{mealTypeTitle}</h4>
@@ -32,7 +31,6 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
             {meals.map((meal, index) => (
               <MealItemCard
                 key={`${meal.recipeName}-${index}-${dailyPlan.day}-${mealTypeKey}`} 
-                mealType={mealTypeTitle} // Pass Chinese title
                 meal={meal}
                 onDelete={() => onDeleteMeal(dailyPlan.day, mealTypeKey, index)}
               />
@@ -40,7 +38,7 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
           </div>
         ) : (
           <div className="flex-grow flex items-center justify-center">
-            <p className="text-xs text-muted-foreground italic">未计划{lowerMealTypeTitle}。</p>
+            <p className="text-xs text-muted-foreground italic">未计划{mealTypeTitle}。</p>
           </div>
         )}
         <Button
@@ -76,4 +74,3 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
     </Card>
   );
 }
-
