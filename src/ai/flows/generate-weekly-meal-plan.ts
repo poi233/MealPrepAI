@@ -9,14 +9,14 @@
  * - GenerateWeeklyMealPlanOutput - The return type for the generateWeeklyMealPlan function.
  * - Meal - Type definition for a single meal.
  * - DailyMealPlan - Type definition for a daily meal plan.
- * - DailyMealPlanSchema - Zod schema for daily meal plan.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { MealSchema, type Meal } from '@/ai/schemas/meal'; 
+import type { Meal } from '@/ai/schemas/meal'; 
+import { DailyMealPlanSchema, type DailyMealPlan } from '@/ai/schemas/daily-meal-plan'; // Import schema and type
 
-export type { Meal }; 
+export type { Meal, DailyMealPlan };  // Export types
 
 const GenerateWeeklyMealPlanInputSchema = z.object({
   planDescription: z
@@ -29,13 +29,7 @@ export type GenerateWeeklyMealPlanInput = z.infer<
   typeof GenerateWeeklyMealPlanInputSchema
 >;
 
-export const DailyMealPlanSchema = z.object({ // Exporting schema
-  day: z.string().describe('星期几 (例如：星期一, 星期二)'),
-  breakfast: z.array(MealSchema).describe('早餐食谱列表。如果未计划，则为空数组。'),
-  lunch: z.array(MealSchema).describe('午餐食谱列表。如果未计划，则为空数组。'),
-  dinner: z.array(MealSchema).describe('晚餐食谱列表。如果未计划，则为空数组。'),
-});
-export type DailyMealPlan = z.infer<typeof DailyMealPlanSchema>;
+// DailyMealPlanSchema is now imported, no local definition or export of the schema object here.
 
 const GenerateWeeklyMealPlanOutputSchema = z.object({
   weeklyMealPlan: z.array(DailyMealPlanSchema).describe('7日膳食计划'),
@@ -149,4 +143,3 @@ const generateWeeklyMealPlanFlow = ai.defineFlow(
     return processedOutput!;
   }
 );
-
