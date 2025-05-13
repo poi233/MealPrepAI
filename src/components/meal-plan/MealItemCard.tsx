@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { ListChecks, BookOpen, Trash2, Edit3 } from "lucide-react";
-import React from 'react'; // Import React for React.Fragment
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import React from 'react'; 
 
 interface MealItemCardProps {
   meal: Meal;
@@ -29,7 +31,7 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
   return (
     <Card className="w-full shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col bg-card/90 backdrop-blur-sm">
       <CardHeader className="pb-1 pt-2 px-2.5">
-        <div className="flex items-center justify-between"> {/* Single flex row for title and buttons */}
+        <div className="flex items-center justify-between"> 
           <CardTitle 
             className="text-sm font-semibold text-primary leading-tight truncate flex-grow mr-2" 
             title={meal?.recipeName || "食谱名称"}
@@ -84,8 +86,8 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
             </AccordionTrigger>
             <AccordionContent className="pt-0.5 pb-1">
               {meal?.instructions ? (
-                <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-                  {meal.instructions}
+                <div className="prose prose-sm max-w-none text-xs text-muted-foreground leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{meal.instructions}</ReactMarkdown>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic">未提供制作步骤。</p>

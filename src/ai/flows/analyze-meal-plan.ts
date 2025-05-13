@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { DailyMealPlanSchema, type DailyMealPlan } from '@/ai/schemas/daily-meal-plan'; // Import schema and type from new location
+import { DailyMealPlanSchema, type DailyMealPlan } from '@/ai/schemas/daily-meal-plan'; 
 
 const AnalyzeMealPlanInputSchema = z.object({
   planDescription: z
@@ -32,21 +32,19 @@ export async function analyzeMealPlan(
 ): Promise<AnalyzeMealPlanOutput> {
   // Serialize weeklyMealPlan to JSON string for the prompt
   const weeklyMealPlanJson = JSON.stringify(input.weeklyMealPlan, null, 2);
-  // This calls the defined flow. If analyzeMealPlanFlow throws, this function will propagate the error.
-  // It should not contain custom error returning logic like `{ error: ... }`.
   return analyzeMealPlanFlow({ ...input, weeklyMealPlanJson });
 }
 
 
 const promptInputSchemaInternal = z.object({
     planDescription: z.string(),
-    weeklyMealPlanJson: z.string(), // Expecting JSON string here for the prompt
+    weeklyMealPlanJson: z.string(), 
 });
 
 
 const prompt = ai.definePrompt({
   name: 'analyzeMealPlanPrompt',
-  input: {schema: promptInputSchemaInternal }, // Use internal schema for prompt
+  input: {schema: promptInputSchemaInternal }, 
   output: {schema: AnalyzeMealPlanOutputSchema},
   prompt: `你是一位专业的营养师和膳食规划顾问。
 你的任务是根据用户提供的7天膳食计划数据（JSON格式）和他们的计划描述（包括饮食偏好、目标等）来进行全面的分析。
@@ -65,10 +63,11 @@ const prompt = ai.definePrompt({
 3.  **多样性和趣味性**: 评价计划中的食谱是否足够多样，以避免饮食单调。
 4.  **可改进的建议**: 提供1-3条具体的、可操作的建议来改进这个膳食计划，使其更健康或更符合用户目标。建议应该清晰且易于执行。
 
-请将您的分析结果组织成清晰、易读的段落。输出应该是一个包含完整分析文本的JSON对象，键为 "analysisText"。
+请将您的分析结果组织成清晰、易读的段落。您可以使用Markdown格式来增强可读性，例如使用**粗体**、*斜体*或项目符号列表来突出建议。
+输出应该是一个包含完整分析文本的JSON对象，键为 "analysisText"。
 例如:
 {
-  "analysisText": "整体来看，这个膳食计划在蛋白质摄入方面做得不错，但蔬菜种类略显单一。该计划很好地遵循了您“低碳水”的偏好，但需要注意补充足够的膳食纤维。为了进一步改善，建议增加不同颜色的蔬菜，并在午餐中加入一份豆类或全谷物食品。"
+  "analysisText": "整体来看，这个膳食计划在蛋白质摄入方面做得不错，但蔬菜种类略显单一。\n\n该计划很好地遵循了您“低碳水”的偏好，但需要注意补充足够的膳食纤维。\n\n为了进一步改善，建议：\n* 增加不同颜色的蔬菜。\n* 在午餐中加入一份豆类或全谷物食品。"
 }
 
 确保输出格式为有效的JSON。
@@ -90,4 +89,4 @@ const analyzeMealPlanFlow = ai.defineFlow(
   }
 );
 
-export type { DailyMealPlan }; // Export type
+export type { DailyMealPlan };

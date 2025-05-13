@@ -14,7 +14,7 @@ import { MealSchema, type Meal } from '@/ai/schemas/meal';
 
 const SuggestRecipeInputSchema = z.object({
   day: z.string().describe('建议食谱的星期几（例如：星期一）。'),
-  mealType: z.string().describe('膳食类型（例如：早餐、午餐、晚餐）。'), // Note: this input mealType might be Chinese already from UI
+  mealType: z.string().describe('膳食类型（例如：早餐、午餐、晚餐）。'), 
   planDescription: z.string().describe('整体膳食计划描述，包括饮食偏好和目标。'),
 });
 export type SuggestRecipeInput = z.infer<typeof SuggestRecipeInputSchema>;
@@ -40,7 +40,7 @@ const prompt = ai.definePrompt({
 计划描述: {{{planDescription}}}
 
 关于配料，请提供具体的用量（例如，“面粉1杯”，“2个大鸡蛋，打散”，“鸡胸肉100克，切丁”）。
-关于步骤，请提供清晰、分步的指导，包括适用的烹饪时间和温度。请给步骤编号。
+关于步骤，请提供清晰、分步的指导，包括适用的烹饪时间和温度。请使用Markdown进行格式化（例如，编号列表、**粗体**强调关键步骤）。
 
 提供一个完整的食谱。确保输出是符合Meal模式的有效JSON：
 {
@@ -66,4 +66,3 @@ const suggestRecipeFlow = ai.defineFlow(
     return output;
   }
 );
-

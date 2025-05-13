@@ -10,7 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { analyzeMealPlanAction } from '@/app/actions';
 import type { AnalyzeMealPlanInput, AnalyzeMealPlanOutput } from '@/ai/flows/analyze-meal-plan';
 import type { MealPlanData } from '@/contexts/MealPlanContext';
-import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert'; // Renamed to avoid conflict
+import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert'; 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface MealPlanAnalysisProps {
   currentMealPlan: MealPlanData | null;
@@ -118,9 +120,9 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         {analysisResult && !isLoading && (
           <div className="mt-6 p-4 border rounded-md bg-secondary/30 shadow-inner">
             <h3 className="text-lg font-semibold mb-2 text-primary">AI分析结果：</h3>
-            <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
-              {analysisResult}
-            </p>
+            <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+            </div>
           </div>
         )}
       </CardContent>
