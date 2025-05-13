@@ -6,6 +6,7 @@ import { useMealPlan, type MealPlanData } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
 import AddRecipeDialog from "./AddRecipeDialog";
+import MealPlanAnalysis from "./MealPlanAnalysis"; // Import the new component
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2, Utensils } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +51,8 @@ export default function GeneratedMealPlan() {
         if (result && "error" in result) {
           console.warn(`无法检索计划 "${planNameToLoad}" 进行显示: ${result.error}。`);
         }
+        // Ensure UI shows "no plan" state rather than an error for "not found"
+        // setError(null); // Keep error null if plan just not found
         planDataToSet = null; 
       }
     } else { 
@@ -111,7 +114,7 @@ export default function GeneratedMealPlan() {
           description: `膳食计划 "${planNameToDelete}" 已被移除。`,
         });
         setMealPlan(null); 
-        setActivePlanName(null); 
+        setActivePlanName(null); // This will trigger useEffect in UserProfileContext to update DB and localStorage
         await refreshPlanListSelector(); 
       } else {
         setError(result.error || "从数据库移除计划失败。");
@@ -234,6 +237,7 @@ export default function GeneratedMealPlan() {
     );
   }
 
+  // This error condition is now less likely to be hit if loadPlan sets error to null for "not found"
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
     return (
       <Alert variant="destructive" className="mt-6">
@@ -304,7 +308,9 @@ export default function GeneratedMealPlan() {
           planDescription={mealPlan.planDescription || ""} 
         />
       )}
+      <MealPlanAnalysis currentMealPlan={mealPlan} />
     </div>
   );
 }
+
 

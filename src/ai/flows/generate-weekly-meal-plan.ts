@@ -9,6 +9,7 @@
  * - GenerateWeeklyMealPlanOutput - The return type for the generateWeeklyMealPlan function.
  * - Meal - Type definition for a single meal.
  * - DailyMealPlan - Type definition for a daily meal plan.
+ * - DailyMealPlanSchema - Zod schema for daily meal plan.
  */
 
 import {ai} from '@/ai/genkit';
@@ -28,7 +29,7 @@ export type GenerateWeeklyMealPlanInput = z.infer<
   typeof GenerateWeeklyMealPlanInputSchema
 >;
 
-const DailyMealPlanSchema = z.object({
+export const DailyMealPlanSchema = z.object({ // Exporting schema
   day: z.string().describe('星期几 (例如：星期一, 星期二)'),
   breakfast: z.array(MealSchema).describe('早餐食谱列表。如果未计划，则为空数组。'),
   lunch: z.array(MealSchema).describe('午餐食谱列表。如果未计划，则为空数组。'),
