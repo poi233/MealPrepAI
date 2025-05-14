@@ -13,12 +13,6 @@ import type { MealPlanData } from '@/contexts/MealPlanContext';
 import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface MealPlanAnalysisProps {
@@ -33,14 +27,12 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const { toast } = useToast();
   const { activePlanName } = useUserProfile();
 
   const fetchAnalysis = useCallback(async (planName: string | null | undefined) => {
     if (!planName) {
       setAnalysisText(null);
-      setIsAccordionOpen(false);
       return;
     }
     setIsFetching(true);
@@ -49,19 +41,15 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
       const result = await getMealPlanAnalysisAction(planName);
       if (result && "analysisText" in result) {
         setAnalysisText(result.analysisText);
-        // setIsAccordionOpen(!!result.analysisText); // Open if text exists
       } else if (result && "error" in result) {
         setFetchError(result.error);
         setAnalysisText(null);
-        setIsAccordionOpen(false);
-      } else { // Plan not found or no analysis yet
+      } else { 
         setAnalysisText(null);
-        setIsAccordionOpen(false);
       }
     } catch (e: any) {
       setFetchError(e.message || '获取分析时发生未知错误。');
       setAnalysisText(null);
-      setIsAccordionOpen(false);
     } finally {
       setIsFetching(false);
     }
@@ -72,7 +60,6 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         fetchAnalysis(activePlanName);
     } else {
         setAnalysisText(null);
-        setIsAccordionOpen(false);
     }
   }, [activePlanName, fetchAnalysis]);
 
@@ -96,8 +83,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
 
     setIsGenerating(true);
     setGenerationError(null);
-    // setAnalysisText(null); // Optionally clear previous results immediately
-
+    
     const input: AnalyzeMealPlanActionInput = {
       planName: activePlanName,
       planDescription: currentMealPlan.planDescription,
@@ -115,7 +101,6 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         });
       } else {
         setAnalysisText(result.analysisText);
-        setIsAccordionOpen(true); 
         toast({
           title: '分析完成并已保存',
           description: 'AI已提供膳食计划分析并保存到数据库。',
@@ -137,7 +122,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
   const canAnalyze = !!currentMealPlan && !!currentMealPlan.weeklyMealPlan && currentMealPlan.weeklyMealPlan.length > 0 && !!currentMealPlan.planDescription && !!activePlanName;
 
   return (
-    <Card className="mt-8 shadow-lg">
+    <Card className="mt-4 shadow-lg"> {/* Reduced top margin as it's in a tab */}
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Brain className="h-6 w-6 text-primary" />
@@ -151,7 +136,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         <Button
           onClick={handleAnalyzePlan}
           disabled={isGenerating || isFetching || !canAnalyze}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto mb-4" 
         >
           {isGenerating ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -162,7 +147,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         </Button>
 
         {!canAnalyze && !isGenerating && !isFetching && (
-           <Alert variant="default" className="mt-4 bg-muted/50">
+           <Alert variant="default" className="bg-muted/50">
              <AlertCircle className="h-4 w-4" />
              <AlertTitle>提示</AlertTitle>
              <AlertDesc>
@@ -194,32 +179,17 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         )}
 
         {(analysisText !== null && !fetchError) && (
-          <Accordion 
-            type="single" 
-            collapsible 
-            className="w-full mt-6 border-t pt-4"
-            value={isAccordionOpen ? "analysis-result-item" : ""}
-            onValueChange={(value) => setIsAccordionOpen(value === "analysis-result-item")}
-          >
-            <AccordionItem value="analysis-result-item" className="border-b-0">
-              <AccordionTrigger 
-                className="w-full flex justify-between items-center p-3 text-md font-semibold text-primary rounded-lg hover:bg-primary/10 transition-colors data-[state=open]:bg-primary/10 [&[data-state=open]>svg]:text-primary"
-              >
-                <span>查看AI分析结果</span>
-              </AccordionTrigger>
-              <AccordionContent className="pt-2 pb-2">
-                 {analysisText.trim() === "" ? (
-                    <p className="text-sm text-muted-foreground italic p-4 text-center">分析内容为空或尚未生成详细内容。</p>
-                 ) : (
-                    <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
-                      <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisText}</ReactMarkdown>
-                      </div>
-                    </div>
-                 )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <div className="mt-4 border-t pt-4">
+             {analysisText.trim() === "" ? (
+                <p className="text-sm text-muted-foreground italic p-4 text-center">分析内容为空或尚未生成详细内容。</p>
+             ) : (
+                <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
+                  <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisText}</ReactMarkdown>
+                  </div>
+                </div>
+             )}
+          </div>
         )}
       </CardContent>
     </Card>

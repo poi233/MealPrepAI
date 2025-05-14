@@ -14,12 +14,6 @@ import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/u
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUserProfile } from '@/contexts/UserProfileContext';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
 interface ShoppingListGeneratorProps {
   currentMealPlan: MealPlanData | null;
@@ -33,16 +27,12 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   const [isFetchingList, setIsFetchingList] = useState(false);
   const [fetchListError, setFetchListError] = useState<string | null>(null);
 
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false); 
-
-
   const { activePlanName } = useUserProfile();
   const { toast } = useToast();
 
   const fetchShoppingList = useCallback(async (planName: string | null | undefined) => {
     if (!planName) {
       setFetchedShoppingListText(null); 
-      setIsAccordionOpen(false);
       return;
     }
     setIsFetchingList(true);
@@ -55,15 +45,12 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         setFetchListError(result.error);
         console.warn(`获取购物清单时出错: ${result.error}`);
         setFetchedShoppingListText(null);
-        setIsAccordionOpen(false);
       } else {
         setFetchedShoppingListText(null); 
-        setIsAccordionOpen(false);
       }
     } catch (e: any) {
       setFetchListError(e.message || '获取购物清单时发生未知错误。');
       setFetchedShoppingListText(null);
-      setIsAccordionOpen(false);
     } finally {
       setIsFetchingList(false);
     }
@@ -74,7 +61,6 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
       fetchShoppingList(activePlanName);
     } else {
       setFetchedShoppingListText(null); 
-      setIsAccordionOpen(false);
     }
   }, [activePlanName, currentMealPlan, fetchShoppingList]);
 
@@ -153,7 +139,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   const canGenerate = !!currentMealPlan && !!currentMealPlan.weeklyMealPlan && currentMealPlan.weeklyMealPlan.length > 0 && !!activePlanName;
 
   return (
-    <Card className="mt-8 shadow-lg">
+    <Card className="mt-4 shadow-lg"> {/* Reduced top margin as it's in a tab */}
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <ListChecks className="h-6 w-6 text-primary" />
@@ -167,7 +153,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         <Button
           onClick={handleGenerateShoppingList}
           disabled={isGeneratingList || isFetchingList || !canGenerate}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto mb-4" 
         >
           {isGeneratingList ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -178,7 +164,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         </Button>
 
         {!canGenerate && !isGeneratingList && !isFetchingList && (
-           <Alert variant="default" className="mt-4 bg-muted/50">
+           <Alert variant="default" className="bg-muted/50">
              <AlertCircle className="h-4 w-4" />
              <AlertTitle>提示</AlertTitle>
              <AlertDesc>
@@ -210,47 +196,31 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         )}
 
         {(fetchedShoppingListText !== null && !fetchListError) && (
-          <Accordion 
-            type="single" 
-            collapsible 
-            className="w-full mt-6 border-t pt-4" // Added border-t and pt-4 for separation
-            value={isAccordionOpen ? "shopping-list-item" : ""}
-            onValueChange={(value) => setIsAccordionOpen(value === "shopping-list-item")}
-          >
-            <AccordionItem value="shopping-list-item" className="border-b-0">
-              <AccordionTrigger 
-                className="w-full flex justify-between items-center p-3 text-md font-semibold text-primary rounded-lg hover:bg-primary/10 transition-colors data-[state=open]:bg-primary/10 [&[data-state=open]>svg]:text-primary"
-              >
-                <span>查看购物清单</span> {/* Wrapped text in span for better control if needed */}
-              </AccordionTrigger>
-              <AccordionContent className="pt-2 pb-2">
-                 <div className="flex justify-end mb-3 mt-1">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopyToClipboard}
-                        disabled={!fetchedShoppingListText || fetchedShoppingListText.trim() === ""}
-                        className="text-primary border-primary hover:bg-primary/10 h-8 px-2.5 py-1.5 text-xs"
-                    >
-                        <ClipboardCopy className="mr-1.5 h-3.5 w-3.5" />
-                        复制清单
-                    </Button>
-                </div>
-                {fetchedShoppingListText.trim() === "" ? (
-                    <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
-                ) : (
-                    <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
-                        <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{fetchedShoppingListText}</ReactMarkdown>
-                        </div>
+          <div className="mt-4 border-t pt-4">
+             <div className="flex justify-end mb-3 mt-1">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyToClipboard}
+                    disabled={!fetchedShoppingListText || fetchedShoppingListText.trim() === ""}
+                    className="text-primary border-primary hover:bg-primary/10 h-8 px-2.5 py-1.5 text-xs"
+                >
+                    <ClipboardCopy className="mr-1.5 h-3.5 w-3.5" />
+                    复制清单
+                </Button>
+            </div>
+            {fetchedShoppingListText.trim() === "" ? (
+                <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
+            ) : (
+                <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
+                    <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{fetchedShoppingListText}</ReactMarkdown>
                     </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
-
