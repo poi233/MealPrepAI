@@ -362,7 +362,7 @@ export default function GeneratedMealPlan() {
           <div className="mb-4 flex items-center gap-2">
             <Filter className="h-5 w-5 text-muted-foreground" />
             <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}>
-              <SelectTrigger className="w-auto min-w-[180px] h-10 text-sm">
+              <SelectTrigger className="w-auto min-w-[200px] h-10 text-sm pl-3 pr-2">
                 <SelectValue placeholder="选择显示方式" />
               </SelectTrigger>
               <SelectContent>
