@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Loader2, ListChecks, ClipboardCopy } from 'lucide-react'; // Removed ChevronsUpDown, ChevronsDownUp
+import { AlertCircle, Loader2, ListChecks, ClipboardCopy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateShoppingListAction, getShoppingListForPlanAction } from '@/app/actions';
 import type { GenerateShoppingListActionInput } from '@/app/actions';
@@ -33,7 +33,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   const [isFetchingList, setIsFetchingList] = useState(false);
   const [fetchListError, setFetchListError] = useState<string | null>(null);
 
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false); // Default to false (folded)
 
 
   const { activePlanName } = useUserProfile();
@@ -51,11 +51,8 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
       const result = await getShoppingListForPlanAction(planName);
       if (result && "shoppingListText" in result) {
         setFetchedShoppingListText(result.shoppingListText);
-        if (result.shoppingListText && result.shoppingListText.trim() !== "") {
-            setIsAccordionOpen(true); 
-        } else {
-            setIsAccordionOpen(false);
-        }
+        // Do not automatically open accordion here
+        // setIsAccordionOpen(!!(result.shoppingListText && result.shoppingListText.trim() !== "")); 
       } else if (result && "error" in result) {
         setFetchListError(result.error);
         console.warn(`获取购物清单时出错: ${result.error}`);
@@ -122,7 +119,8 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         setFetchedShoppingListText(null); 
       } else {
         setFetchedShoppingListText(result.shoppingListText);
-        setIsAccordionOpen(true); 
+        // Do not automatically open accordion here, let user click to open it
+        // setIsAccordionOpen(true); 
         toast({
           title: '购物清单已生成并保存',
           description: 'AI已为您创建购物清单并将其保存到数据库。',
@@ -230,19 +228,18 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
                 查看购物清单
               </AccordionTrigger>
               <AccordionContent className="pt-1 pb-2">
-                {fetchedShoppingListText && fetchedShoppingListText.trim() !== "" && (
-                     <div className="flex justify-end mb-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCopyToClipboard}
-                            className="text-primary border-primary hover:bg-primary/10 h-7 px-2 py-1 text-xs"
-                        >
-                            <ClipboardCopy className="mr-1.5 h-3 w-3" />
-                            复制
-                        </Button>
-                    </div>
-                )}
+                 <div className="flex justify-end mb-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyToClipboard}
+                        disabled={!fetchedShoppingListText || fetchedShoppingListText.trim() === ""}
+                        className="text-primary border-primary hover:bg-primary/10 h-7 px-2 py-1 text-xs"
+                    >
+                        <ClipboardCopy className="mr-1.5 h-3 w-3" />
+                        复制
+                    </Button>
+                </div>
                 {fetchedShoppingListText.trim() === "" ? (
                     <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
                 ) : (
