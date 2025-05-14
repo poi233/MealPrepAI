@@ -33,7 +33,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   const [isFetchingList, setIsFetchingList] = useState(false);
   const [fetchListError, setFetchListError] = useState<string | null>(null);
 
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false); // Default to false (folded)
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false); 
 
 
   const { activePlanName } = useUserProfile();
@@ -51,8 +51,6 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
       const result = await getShoppingListForPlanAction(planName);
       if (result && "shoppingListText" in result) {
         setFetchedShoppingListText(result.shoppingListText);
-        // Do not automatically open accordion here
-        // setIsAccordionOpen(!!(result.shoppingListText && result.shoppingListText.trim() !== "")); 
       } else if (result && "error" in result) {
         setFetchListError(result.error);
         console.warn(`获取购物清单时出错: ${result.error}`);
@@ -119,8 +117,6 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         setFetchedShoppingListText(null); 
       } else {
         setFetchedShoppingListText(result.shoppingListText);
-        // Do not automatically open accordion here, let user click to open it
-        // setIsAccordionOpen(true); 
         toast({
           title: '购物清单已生成并保存',
           description: 'AI已为您创建购物清单并将其保存到数据库。',
@@ -217,33 +213,33 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
           <Accordion 
             type="single" 
             collapsible 
-            className="w-full mt-6"
+            className="w-full mt-6 border-t pt-4" // Added border-t and pt-4 for separation
             value={isAccordionOpen ? "shopping-list-item" : ""}
             onValueChange={(value) => setIsAccordionOpen(value === "shopping-list-item")}
           >
-            <AccordionItem value="shopping-list-item">
+            <AccordionItem value="shopping-list-item" className="border-b-0">
               <AccordionTrigger 
-                className="text-base font-medium hover:text-accent py-2 [&[data-state=open]>svg]:text-accent"
+                className="w-full flex justify-between items-center p-3 text-md font-semibold text-primary rounded-lg hover:bg-primary/10 transition-colors data-[state=open]:bg-primary/10 [&[data-state=open]>svg]:text-primary"
               >
-                查看购物清单
+                <span>查看购物清单</span> {/* Wrapped text in span for better control if needed */}
               </AccordionTrigger>
-              <AccordionContent className="pt-1 pb-2">
-                 <div className="flex justify-end mb-2">
+              <AccordionContent className="pt-2 pb-2">
+                 <div className="flex justify-end mb-3 mt-1">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={handleCopyToClipboard}
                         disabled={!fetchedShoppingListText || fetchedShoppingListText.trim() === ""}
-                        className="text-primary border-primary hover:bg-primary/10 h-7 px-2 py-1 text-xs"
+                        className="text-primary border-primary hover:bg-primary/10 h-8 px-2.5 py-1.5 text-xs"
                     >
-                        <ClipboardCopy className="mr-1.5 h-3 w-3" />
-                        复制
+                        <ClipboardCopy className="mr-1.5 h-3.5 w-3.5" />
+                        复制清单
                     </Button>
                 </div>
                 {fetchedShoppingListText.trim() === "" ? (
                     <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
                 ) : (
-                    <div className="p-4 border rounded-md bg-secondary/30 shadow-inner">
+                    <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
                         <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{fetchedShoppingListText}</ReactMarkdown>
                         </div>
