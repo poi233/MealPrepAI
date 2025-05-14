@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Loader2, ListChecks, ClipboardCopy, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { AlertCircle, Loader2, ListChecks, ClipboardCopy } from 'lucide-react'; // Removed ChevronsUpDown, ChevronsDownUp
 import { useToast } from '@/hooks/use-toast';
 import { generateShoppingListAction, getShoppingListForPlanAction } from '@/app/actions';
 import type { GenerateShoppingListActionInput } from '@/app/actions';
@@ -41,7 +41,8 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
 
   const fetchShoppingList = useCallback(async (planName: string | null | undefined) => {
     if (!planName) {
-      setFetchedShoppingListText(null); // Clear list if no active plan
+      setFetchedShoppingListText(null); 
+      setIsAccordionOpen(false);
       return;
     }
     setIsFetchingList(true);
@@ -51,31 +52,33 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
       if (result && "shoppingListText" in result) {
         setFetchedShoppingListText(result.shoppingListText);
         if (result.shoppingListText && result.shoppingListText.trim() !== "") {
-            setIsAccordionOpen(true); // Auto-open if list exists
+            setIsAccordionOpen(true); 
         } else {
             setIsAccordionOpen(false);
         }
       } else if (result && "error" in result) {
         setFetchListError(result.error);
-        // Don't toast here, as it might be normal for a new plan not to have a list yet.
         console.warn(`获取购物清单时出错: ${result.error}`);
         setFetchedShoppingListText(null);
+        setIsAccordionOpen(false);
       } else {
-        setFetchedShoppingListText(null); // No list found
+        setFetchedShoppingListText(null); 
+        setIsAccordionOpen(false);
       }
     } catch (e: any) {
       setFetchListError(e.message || '获取购物清单时发生未知错误。');
       setFetchedShoppingListText(null);
+      setIsAccordionOpen(false);
     } finally {
       setIsFetchingList(false);
     }
   }, []);
 
   useEffect(() => {
-    if (activePlanName && currentMealPlan) { // Only fetch if there's an active plan and currentMealPlan is loaded
+    if (activePlanName && currentMealPlan) { 
       fetchShoppingList(activePlanName);
     } else {
-      setFetchedShoppingListText(null); // Clear list if no active plan or currentMealPlan
+      setFetchedShoppingListText(null); 
       setIsAccordionOpen(false);
     }
   }, [activePlanName, currentMealPlan, fetchShoppingList]);
@@ -100,8 +103,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
 
     setIsGeneratingList(true);
     setGenerationError(null);
-    // setFetchedShoppingListText(null); // Optionally clear old list while generating new one
-
+    
     const input: GenerateShoppingListActionInput = {
       planName: activePlanName,
       weeklyMealPlan: currentMealPlan.weeklyMealPlan,
@@ -117,10 +119,10 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
           description: result.error,
           variant: 'destructive',
         });
-        setFetchedShoppingListText(null); // Clear list on error
+        setFetchedShoppingListText(null); 
       } else {
         setFetchedShoppingListText(result.shoppingListText);
-        setIsAccordionOpen(true); // Open accordion to show new list
+        setIsAccordionOpen(true); 
         toast({
           title: '购物清单已生成并保存',
           description: 'AI已为您创建购物清单并将其保存到数据库。',
@@ -222,26 +224,25 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
             onValueChange={(value) => setIsAccordionOpen(value === "shopping-list-item")}
           >
             <AccordionItem value="shopping-list-item">
-              <AccordionTrigger className="text-base font-medium hover:text-accent py-2 [&[data-state=open]>svg]:text-accent">
-                <div className="flex items-center justify-between w-full pr-2">
-                  <span className="flex items-center">
-                     {isAccordionOpen ? <ChevronsDownUp className="mr-2 h-4 w-4" /> : <ChevronsUpDown className="mr-2 h-4 w-4" />}
-                    查看购物清单
-                  </span>
-                  {isAccordionOpen && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => { e.stopPropagation(); handleCopyToClipboard(); }}
-                        className="text-primary border-primary hover:bg-primary/10 h-7 px-2 py-1 text-xs"
-                    >
-                        <ClipboardCopy className="mr-1.5 h-3 w-3" />
-                        复制
-                    </Button>
-                  )}
-                </div>
+              <AccordionTrigger 
+                className="text-base font-medium hover:text-accent py-2 [&[data-state=open]>svg]:text-accent"
+              >
+                查看购物清单
               </AccordionTrigger>
               <AccordionContent className="pt-1 pb-2">
+                {fetchedShoppingListText && fetchedShoppingListText.trim() !== "" && (
+                     <div className="flex justify-end mb-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCopyToClipboard}
+                            className="text-primary border-primary hover:bg-primary/10 h-7 px-2 py-1 text-xs"
+                        >
+                            <ClipboardCopy className="mr-1.5 h-3 w-3" />
+                            复制
+                        </Button>
+                    </div>
+                )}
                 {fetchedShoppingListText.trim() === "" ? (
                     <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
                 ) : (
@@ -259,3 +260,4 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
     </Card>
   );
 }
+
