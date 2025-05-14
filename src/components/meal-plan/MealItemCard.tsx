@@ -99,3 +99,4 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
     </Card>
   );
 }
+
