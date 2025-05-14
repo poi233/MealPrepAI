@@ -13,6 +13,12 @@ import type { MealPlanData } from '@/contexts/MealPlanContext';
 import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface MealPlanAnalysisProps {
   currentMealPlan: MealPlanData | null;
@@ -22,6 +28,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const { toast } = useToast();
 
   const handleAnalyzePlan = async () => {
@@ -36,7 +43,8 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
 
     setIsLoading(true);
     setError(null);
-    setAnalysisResult(null);
+    setAnalysisResult(null); // Clear previous results
+    setIsAccordionOpen(false); // Collapse accordion before new analysis
 
     const input: AnalyzeMealPlanInput = {
       planDescription: currentMealPlan.planDescription,
@@ -54,6 +62,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         });
       } else {
         setAnalysisResult(result.analysisText);
+        setIsAccordionOpen(true); // Open accordion to show new results
         toast({
           title: '分析完成',
           description: 'AI已提供膳食计划分析。',
@@ -118,14 +127,31 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         )}
 
         {analysisResult && !isLoading && (
-          <div className="mt-6 p-4 border rounded-md bg-secondary/30 shadow-inner">
-            <h3 className="text-lg font-semibold mb-2 text-primary">AI分析结果：</h3>
-            <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-            </div>
-          </div>
+          <Accordion 
+            type="single" 
+            collapsible 
+            className="w-full mt-6 border-t pt-4"
+            value={isAccordionOpen ? "analysis-result-item" : ""}
+            onValueChange={(value) => setIsAccordionOpen(value === "analysis-result-item")}
+          >
+            <AccordionItem value="analysis-result-item" className="border-b-0">
+              <AccordionTrigger 
+                className="w-full flex justify-between items-center p-3 text-md font-semibold text-primary rounded-lg hover:bg-primary/10 transition-colors data-[state=open]:bg-primary/10 [&[data-state=open]>svg]:text-primary"
+              >
+                <span>查看AI分析结果</span>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2 pb-2">
+                <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
+                  <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         )}
       </CardContent>
     </Card>
   );
 }
+
