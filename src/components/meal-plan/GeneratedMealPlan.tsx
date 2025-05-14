@@ -9,7 +9,7 @@ import AddRecipeDialog from "./AddRecipeDialog";
 import MealPlanAnalysis from "./MealPlanAnalysis"; 
 import ShoppingListGenerator from "./ShoppingListGenerator";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2, Utensils, CalendarDays, Brain, ListChecks } from "lucide-react";
+import { AlertCircle, Trash2, Utensils, CalendarDays, Brain, ListChecks, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
@@ -18,6 +18,14 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   deleteMealPlanByNameAction, 
   saveMealPlanToDb, 
@@ -29,6 +37,10 @@ import { usePlanList } from '@/contexts/PlanListContext';
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
+const DAYS_OF_WEEK_CHINESE = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+const DAYS_OF_WEEK_SELECTOR = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"];
+
+
 export default function GeneratedMealPlan() {
   const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError, setIsLoading: setMealPlanLoading } = useMealPlan();
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
@@ -38,7 +50,20 @@ export default function GeneratedMealPlan() {
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
   
+  const [displayMode, setDisplayMode] = useState<'today' | 'all' | string>('today');
+  const [currentDayName, setCurrentDayName] = useState<string>('');
+
   const isLoading = isMealPlanContextLoading || isProfileLoading;
+
+  const getCurrentDayInChinese = useCallback((): string => {
+    const todayIndex = new Date().getDay(); // Sunday is 0, Monday is 1, etc.
+    return DAYS_OF_WEEK_CHINESE[todayIndex];
+  }, []);
+
+  useEffect(() => {
+    setCurrentDayName(getCurrentDayInChinese());
+  }, [getCurrentDayInChinese]);
+
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
     setMealPlanLoading(true);
@@ -61,9 +86,9 @@ export default function GeneratedMealPlan() {
           }
         } else {
           if (result && "error" in result) {
-            console.warn(`Could not retrieve plan "${planNameToLoad}" for display: ${result.error}.`);
+            console.warn(`无法加载计划 "${planNameToLoad}": ${result.error}.`);
           } else if (!result) {
-             console.warn(`Plan "${planNameToLoad}" not found or getSavedMealPlanByNameAction returned null.`);
+             console.warn(`未找到计划 "${planNameToLoad}" 或 getSavedMealPlanByNameAction 返回 null.`);
           }
           planDataToSet = null;
         }
@@ -72,7 +97,7 @@ export default function GeneratedMealPlan() {
       }
       setMealPlan(planDataToSet);
     } catch (e) {
-      console.error("Unexpected error in loadPlan:", e);
+      console.error("加载计划时发生意外错误:", e);
       setMealPlan(null); 
     } finally {
       setMealPlanLoading(false);
@@ -85,7 +110,7 @@ export default function GeneratedMealPlan() {
         loadPlan(activePlanName);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlanName, isProfileLoading]); // loadPlan dependency removed to avoid re-triggering on its own recreation
+  }, [activePlanName, isProfileLoading]);
 
   const saveCurrentPlanToDb = async (updatedMealPlanData: GenerateWeeklyMealPlanOutput) => {
     if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
@@ -103,8 +128,6 @@ export default function GeneratedMealPlan() {
         title: "计划已更新",
         description: "您的膳食计划更改已保存到数据库。",
       });
-       // After saving, reload the plan to get the latest data including possibly cleared analysis text.
-       // This ensures the UI reflects the DB state.
       await loadPlan(activePlanName);
 
     } catch (dbError: any) {
@@ -135,7 +158,7 @@ export default function GeneratedMealPlan() {
           description: `膳食计划 "${planNameToDelete}" 已被移除。`,
         });
         setMealPlan(null); 
-        setActivePlanName(null); 
+        setActivePlanName(null); // This will also update DB for active status to ""
         await refreshPlanListSelector(); 
       } else {
         toast({
@@ -232,6 +255,22 @@ export default function GeneratedMealPlan() {
     setAddRecipeTarget(null);
   };
 
+  const getFilteredWeeklyPlan = useCallback(() => {
+    if (!mealPlan?.weeklyMealPlan) return [];
+    
+    switch (displayMode) {
+      case 'today':
+        return currentDayName ? mealPlan.weeklyMealPlan.filter(dp => dp.day === currentDayName) : [];
+      case 'all':
+        return mealPlan.weeklyMealPlan;
+      default: // Specific day selected
+        return mealPlan.weeklyMealPlan.filter(dp => dp.day === displayMode);
+    }
+  }, [mealPlan, displayMode, currentDayName]);
+
+  const displayedDailyPlans = getFilteredWeeklyPlan();
+
+
   if (isLoading) {
     return (
       <div className="space-y-4 mt-6">
@@ -320,16 +359,44 @@ export default function GeneratedMealPlan() {
         </TabsList>
 
         <TabsContent value="weekly-plan" className="mt-4">
-          <div className="space-y-3">
-            {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
-              <DailyMealCard 
-                key={`${activePlanName}-${dailyPlanItem.day}`} 
-                dailyPlan={dailyPlanItem} 
-                onDeleteMeal={handleDeleteMeal}
-                onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
-              />
-            ))}
+          <div className="mb-4 flex items-center gap-2">
+            <Filter className="h-5 w-5 text-muted-foreground" />
+            <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}>
+              <SelectTrigger className="w-auto min-w-[160px] h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="选择显示方式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today" className="text-xs sm:text-sm">显示今天 ({currentDayName})</SelectItem>
+                <SelectItem value="all" className="text-xs sm:text-sm">显示整周</SelectItem>
+                <SelectSeparator />
+                {DAYS_OF_WEEK_SELECTOR.map(day => (
+                    <SelectItem key={day} value={day} className="text-xs sm:text-sm">{day}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {displayedDailyPlans.length > 0 ? (
+            <div className="space-y-3">
+              {displayedDailyPlans.map((dailyPlanItem) => (
+                <DailyMealCard 
+                  key={`${activePlanName}-${dailyPlanItem.day}`} 
+                  dailyPlan={dailyPlanItem} 
+                  onDeleteMeal={handleDeleteMeal}
+                  onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
+                />
+              ))}
+            </div>
+            ) : (
+            <Alert className="mt-4 bg-muted/50">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>无膳食记录</AlertTitle>
+                <AlertDescription>
+                    {displayMode === 'today' ? `今天 (${currentDayName}) ` : (displayMode !== 'all' ? `${displayMode} ` : '')}
+                    没有找到膳食记录。您可以尝试选择“显示整周”或生成新的计划。
+                </AlertDescription>
+            </Alert>
+            )}
         </TabsContent>
 
         <TabsContent value="analysis" className="mt-4">
@@ -349,7 +416,7 @@ export default function GeneratedMealPlan() {
             setAddRecipeTarget(null);
           }}
           onSubmit={handleAddNewRecipeSubmit}
-          mealTypeTitle={addRecipeTarget.mealTypeTitle} // This is Chinese title from DailyMealCard
+          mealTypeTitle={addRecipeTarget.mealTypeTitle} 
           day={addRecipeTarget.day}
           planDescription={mealPlan.planDescription || ""} 
         />
