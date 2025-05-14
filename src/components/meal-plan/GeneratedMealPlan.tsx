@@ -9,9 +9,15 @@ import AddRecipeDialog from "./AddRecipeDialog";
 import MealPlanAnalysis from "./MealPlanAnalysis"; 
 import ShoppingListGenerator from "./ShoppingListGenerator";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2, Utensils } from "lucide-react";
+import { AlertCircle, Trash2, Utensils, CalendarDays, Brain, ListChecks } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { 
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { 
   deleteMealPlanByNameAction, 
   saveMealPlanToDb, 
@@ -47,7 +53,7 @@ export default function GeneratedMealPlan() {
             planDataToSet = { 
               weeklyMealPlan: result.mealPlanData.weeklyMealPlan, 
               planDescription: result.planDescription,
-              analysisText: result.analysisText // Include fetched analysis text
+              analysisText: result.analysisText 
             };
           } else {
             console.warn(`Plan "${planNameToLoad}" data is malformed. MealPlanData or weeklyMealPlan is missing.`);
@@ -56,7 +62,6 @@ export default function GeneratedMealPlan() {
         } else {
           if (result && "error" in result) {
             console.warn(`Could not retrieve plan "${planNameToLoad}" for display: ${result.error}.`);
-            // Don't set mealPlanError here to allow showing "No plan" message
           } else if (!result) {
              console.warn(`Plan "${planNameToLoad}" not found or getSavedMealPlanByNameAction returned null.`);
           }
@@ -68,8 +73,6 @@ export default function GeneratedMealPlan() {
       setMealPlan(planDataToSet);
     } catch (e) {
       console.error("Unexpected error in loadPlan:", e);
-      // Don't set mealPlanError here to allow showing "No plan" message
-      // setError(e instanceof Error ? e.message : "An unexpected error occurred during plan loading.");
       setMealPlan(null); 
     } finally {
       setMealPlanLoading(false);
@@ -81,7 +84,8 @@ export default function GeneratedMealPlan() {
     if (!isProfileLoading && activePlanName !== undefined) { 
         loadPlan(activePlanName);
     }
-  }, [activePlanName, isProfileLoading, loadPlan]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanName, isProfileLoading]); // loadPlan dependency removed to avoid re-triggering on its own recreation
 
   const saveCurrentPlanToDb = async (updatedMealPlanData: GenerateWeeklyMealPlanOutput) => {
     if (!mealPlan || !activePlanName || mealPlan.planDescription === undefined) {
@@ -94,12 +98,15 @@ export default function GeneratedMealPlan() {
     }
 
     try {
-      // Saving the meal plan might clear its analysis_text, this is handled in saveMealPlanToDbInternal
       await saveMealPlanToDb(activePlanName, mealPlan.planDescription, updatedMealPlanData);
       toast({
         title: "计划已更新",
         description: "您的膳食计划更改已保存到数据库。",
       });
+       // After saving, reload the plan to get the latest data including possibly cleared analysis text.
+       // This ensures the UI reflects the DB state.
+      await loadPlan(activePlanName);
+
     } catch (dbError: any) {
       console.error("保存膳食计划到数据库失败:", dbError); 
       toast({
@@ -250,13 +257,15 @@ export default function GeneratedMealPlan() {
   }
   
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
-     // Displaying welcome message instead of error for initial load failures or cleared states
     return (
       <div className="mt-12 text-center py-10">
         <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
-        <h2 className="text-3xl font-semibold text-primary mb-3">当前无活动膳食计划！</h2>
-        <p className="text-lg text-muted-foreground mb-6">
-          请在头部菜单中生成新的膳食计划或选择一个已有的计划。
+        <h2 className="text-3xl font-semibold text-primary mb-3">膳食计划加载出错！</h2>
+        <p className="text-lg text-muted-foreground mb-3">
+          加载您的膳食计划时出现问题: {mealPlanError}
+        </p>
+        <p className="text-md text-muted-foreground">
+          请尝试刷新页面，或在顶部菜单中生成新的膳食计划或选择一个已有的计划。
         </p>
       </div>
     );
@@ -293,16 +302,45 @@ export default function GeneratedMealPlan() {
           </Button>
         )}
       </div>
-      <div className="space-y-3">
-        {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
-          <DailyMealCard 
-            key={`${activePlanName}-${dailyPlanItem.day}`} 
-            dailyPlan={dailyPlanItem} 
-            onDeleteMeal={handleDeleteMeal}
-            onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
-          />
-        ))}
-      </div>
+      
+      <Tabs defaultValue="weekly-plan" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="weekly-plan" className="text-xs sm:text-sm">
+            <CalendarDays className="mr-1.5 h-4 w-4" />
+            每周计划
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="text-xs sm:text-sm">
+            <Brain className="mr-1.5 h-4 w-4" />
+            AI分析
+          </TabsTrigger>
+          <TabsTrigger value="shopping-list" className="text-xs sm:text-sm">
+            <ListChecks className="mr-1.5 h-4 w-4" />
+            购物清单
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="weekly-plan" className="mt-4">
+          <div className="space-y-3">
+            {mealPlan.weeklyMealPlan.map((dailyPlanItem) => (
+              <DailyMealCard 
+                key={`${activePlanName}-${dailyPlanItem.day}`} 
+                dailyPlan={dailyPlanItem} 
+                onDeleteMeal={handleDeleteMeal}
+                onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
+              />
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analysis" className="mt-4">
+          <MealPlanAnalysis currentMealPlan={mealPlan} />
+        </TabsContent>
+
+        <TabsContent value="shopping-list" className="mt-4">
+          <ShoppingListGenerator currentMealPlan={mealPlan} />
+        </TabsContent>
+      </Tabs>
+
       {addRecipeTarget && mealPlan && ( 
         <AddRecipeDialog
           isOpen={isAddRecipeDialogOpen}
@@ -311,14 +349,12 @@ export default function GeneratedMealPlan() {
             setAddRecipeTarget(null);
           }}
           onSubmit={handleAddNewRecipeSubmit}
-          mealTypeTitle={addRecipeTarget.mealTypeTitle}
+          mealTypeTitle={addRecipeTarget.mealTypeTitle} // This is Chinese title from DailyMealCard
           day={addRecipeTarget.day}
           planDescription={mealPlan.planDescription || ""} 
         />
       )}
-      {/* The MealPlanAnalysis component will now load its own data if `activePlanName` is set */}
-      <MealPlanAnalysis currentMealPlan={mealPlan} />
-      <ShoppingListGenerator currentMealPlan={mealPlan} />
     </div>
   );
 }
+
