@@ -164,7 +164,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         </Button>
 
         {!canGenerate && !isGeneratingList && !isFetchingList && (
-           <Alert variant="default" className="bg-muted/50">
+           <Alert variant="default" className="bg-muted/50 mt-4">
              <AlertCircle className="h-4 w-4" />
              <AlertTitle>提示</AlertTitle>
              <AlertDesc>
@@ -196,7 +196,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         )}
 
         {(fetchedShoppingListText !== null && !fetchListError) && (
-          <div className="mt-4 border-t pt-4">
+          <div className="mt-4">
              <div className="flex justify-end mb-3 mt-1">
                 <Button
                     variant="outline"

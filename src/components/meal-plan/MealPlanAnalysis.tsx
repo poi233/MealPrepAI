@@ -147,7 +147,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         </Button>
 
         {!canAnalyze && !isGenerating && !isFetching && (
-           <Alert variant="default" className="bg-muted/50">
+           <Alert variant="default" className="bg-muted/50 mt-4">
              <AlertCircle className="h-4 w-4" />
              <AlertTitle>提示</AlertTitle>
              <AlertDesc>
@@ -179,7 +179,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         )}
 
         {(analysisText !== null && !fetchError) && (
-          <div className="mt-4 border-t pt-4">
+          <div className="mt-4">
              {analysisText.trim() === "" ? (
                 <p className="text-sm text-muted-foreground italic p-4 text-center">分析内容为空或尚未生成详细内容。</p>
              ) : (
