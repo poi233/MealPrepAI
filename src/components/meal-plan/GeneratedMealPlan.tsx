@@ -158,7 +158,7 @@ export default function GeneratedMealPlan() {
           description: `膳食计划 "${planNameToDelete}" 已被移除。`,
         });
         setMealPlan(null); 
-        setActivePlanName(null); // This will also update DB for active status to ""
+        setActivePlanName(null); 
         await refreshPlanListSelector(); 
       } else {
         toast({
@@ -344,15 +344,15 @@ export default function GeneratedMealPlan() {
       
       <Tabs defaultValue="weekly-plan" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="weekly-plan" className="text-xs sm:text-sm">
+          <TabsTrigger value="weekly-plan" className="text-xs sm:text-sm data-[state=active]:text-primary data-[state=active]:font-semibold">
             <CalendarDays className="mr-1.5 h-4 w-4" />
             每周计划
           </TabsTrigger>
-          <TabsTrigger value="analysis" className="text-xs sm:text-sm">
+          <TabsTrigger value="analysis" className="text-xs sm:text-sm data-[state=active]:text-primary data-[state=active]:font-semibold">
             <Brain className="mr-1.5 h-4 w-4" />
             AI分析
           </TabsTrigger>
-          <TabsTrigger value="shopping-list" className="text-xs sm:text-sm">
+          <TabsTrigger value="shopping-list" className="text-xs sm:text-sm data-[state=active]:text-primary data-[state=active]:font-semibold">
             <ListChecks className="mr-1.5 h-4 w-4" />
             购物清单
           </TabsTrigger>
@@ -362,15 +362,15 @@ export default function GeneratedMealPlan() {
           <div className="mb-4 flex items-center gap-2">
             <Filter className="h-5 w-5 text-muted-foreground" />
             <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}>
-              <SelectTrigger className="w-auto min-w-[160px] h-9 text-xs sm:text-sm">
+              <SelectTrigger className="w-auto min-w-[180px] h-10 text-sm">
                 <SelectValue placeholder="选择显示方式" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="today" className="text-xs sm:text-sm">显示今天 ({currentDayName})</SelectItem>
-                <SelectItem value="all" className="text-xs sm:text-sm">显示整周</SelectItem>
+                <SelectItem value="today" className="text-sm">显示今天 ({currentDayName})</SelectItem>
+                <SelectItem value="all" className="text-sm">显示整周</SelectItem>
                 <SelectSeparator />
                 {DAYS_OF_WEEK_SELECTOR.map(day => (
-                    <SelectItem key={day} value={day} className="text-xs sm:text-sm">{day}</SelectItem>
+                    <SelectItem key={day} value={day} className="text-sm">{day}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
