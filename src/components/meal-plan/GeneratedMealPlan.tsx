@@ -43,9 +43,12 @@ export default function GeneratedMealPlan() {
       if (planNameToLoad) {
         const result = await getSavedMealPlanByNameAction(planNameToLoad);
         if (result && !("error" in result)) {
-          // Ensure mealPlanData and weeklyMealPlan exist
           if (result.mealPlanData && result.mealPlanData.weeklyMealPlan) {
-            planDataToSet = { weeklyMealPlan: result.mealPlanData.weeklyMealPlan, planDescription: result.planDescription };
+            planDataToSet = { 
+              weeklyMealPlan: result.mealPlanData.weeklyMealPlan, 
+              planDescription: result.planDescription,
+              analysisText: result.analysisText // Include fetched analysis text
+            };
           } else {
             console.warn(`Plan "${planNameToLoad}" data is malformed. MealPlanData or weeklyMealPlan is missing.`);
             planDataToSet = null; 
@@ -53,6 +56,7 @@ export default function GeneratedMealPlan() {
         } else {
           if (result && "error" in result) {
             console.warn(`Could not retrieve plan "${planNameToLoad}" for display: ${result.error}.`);
+            // Don't set mealPlanError here to allow showing "No plan" message
           } else if (!result) {
              console.warn(`Plan "${planNameToLoad}" not found or getSavedMealPlanByNameAction returned null.`);
           }
@@ -64,7 +68,8 @@ export default function GeneratedMealPlan() {
       setMealPlan(planDataToSet);
     } catch (e) {
       console.error("Unexpected error in loadPlan:", e);
-      setError(e instanceof Error ? e.message : "An unexpected error occurred during plan loading.");
+      // Don't set mealPlanError here to allow showing "No plan" message
+      // setError(e instanceof Error ? e.message : "An unexpected error occurred during plan loading.");
       setMealPlan(null); 
     } finally {
       setMealPlanLoading(false);
@@ -89,6 +94,7 @@ export default function GeneratedMealPlan() {
     }
 
     try {
+      // Saving the meal plan might clear its analysis_text, this is handled in saveMealPlanToDbInternal
       await saveMealPlanToDb(activePlanName, mealPlan.planDescription, updatedMealPlanData);
       toast({
         title: "计划已更新",
@@ -244,21 +250,15 @@ export default function GeneratedMealPlan() {
   }
   
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
+     // Displaying welcome message instead of error for initial load failures or cleared states
     return (
-      <Alert variant="destructive" className="mt-6">
-        <AlertCircle className="h-5 w-5" />
-        <AlertTitle>加载计划出错</AlertTitle>
-        <AlertDescription>
-          尝试加载膳食计划时发生错误。请检查您的网络连接或稍后再试。
-          {mealPlanError && <p className="mt-2 text-xs">错误详情: {mealPlanError}</p>}
-        </AlertDescription>
-        <Button onClick={() => {
-          setError(null); 
-          if (activePlanName !== undefined) loadPlan(activePlanName); 
-        }} variant="outline" className="mt-3 text-xs py-1 px-2 h-auto">
-          重试加载
-        </Button>
-      </Alert>
+      <div className="mt-12 text-center py-10">
+        <Utensils size={64} className="mx-auto text-muted-foreground/50 mb-6" />
+        <h2 className="text-3xl font-semibold text-primary mb-3">当前无活动膳食计划！</h2>
+        <p className="text-lg text-muted-foreground mb-6">
+          请在头部菜单中生成新的膳食计划或选择一个已有的计划。
+        </p>
+      </div>
     );
   }
 
@@ -316,11 +316,9 @@ export default function GeneratedMealPlan() {
           planDescription={mealPlan.planDescription || ""} 
         />
       )}
+      {/* The MealPlanAnalysis component will now load its own data if `activePlanName` is set */}
       <MealPlanAnalysis currentMealPlan={mealPlan} />
       <ShoppingListGenerator currentMealPlan={mealPlan} />
     </div>
   );
 }
-
-
-    

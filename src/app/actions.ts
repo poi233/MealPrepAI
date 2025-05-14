@@ -4,7 +4,7 @@
 import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type GenerateWeeklyMealPlanOutput, type DailyMealPlan } from "@/ai/flows/generate-weekly-meal-plan";
 import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
 import { suggestRecipe, type SuggestRecipeInput, type SuggestRecipeOutput } from "@/ai/flows/suggest-recipe";
-import { analyzeMealPlan, type AnalyzeMealPlanInput, type AnalyzeMealPlanOutput } from "@/ai/flows/analyze-meal-plan";
+import { analyzeMealPlan, type AnalyzeMealPlanInput as AnalyzeMealPlanFlowInput, type AnalyzeMealPlanOutput } from "@/ai/flows/analyze-meal-plan";
 import { generateShoppingList, type GenerateShoppingListInput as GenerateShoppingListFlowInput, type GenerateShoppingListOutput } from "@/ai/flows/generate-shopping-list";
 
 import { 
@@ -16,6 +16,8 @@ import {
   setActivePlanInDb,
   saveShoppingListToDb,
   getShoppingListByPlanNameFromDb,
+  saveMealPlanAnalysisToDb, // New DB function
+  getMealPlanAnalysisFromDb, // New DB function
 } from "@/lib/db";
 
 export interface GenerateMealPlanActionInput {
@@ -48,6 +50,7 @@ export async function generateMealPlanAction(
     }
 
     try {
+      // Saving the meal plan also clears its analysis_text column in DB.
       await saveMealPlanToDbInternal(input.planName, input.planDescription, result);
       await setActivePlanInDb(input.planName);
     } catch (dbError) {
@@ -65,7 +68,7 @@ export async function generateMealPlanAction(
 
 export async function getSavedMealPlanByNameAction(
   planName: string
-): Promise<{ mealPlanData: GenerateWeeklyMealPlanOutput; planDescription: string; isActive: boolean } | null | { error: string }> {
+): Promise<{ mealPlanData: GenerateWeeklyMealPlanOutput; planDescription: string; isActive: boolean; analysisText: string | null } | null | { error: string }> {
   if (!planName || planName.trim() === "") {
     return null; 
   }
@@ -180,7 +183,7 @@ export async function getAllSavedMealPlanNamesAction(): Promise<string[] | { err
   }
 }
 
-export async function getActiveMealPlanAction(): Promise<{ planName: string; planDescription: string; mealPlanData: GenerateWeeklyMealPlanOutput } | null | { error: string }> {
+export async function getActiveMealPlanAction(): Promise<{ planName: string; planDescription: string; mealPlanData: GenerateWeeklyMealPlanOutput; analysisText: string | null } | null | { error: string }> {
   try {
     const activePlan = await getActiveMealPlanFromDb();
     return activePlan;
@@ -202,10 +205,18 @@ export async function setActivePlanAction(planName: string): Promise<{ success: 
   }
 }
 
+// Action specific input type for analysis
+export interface AnalyzeMealPlanActionInput extends AnalyzeMealPlanFlowInput {
+  planName: string;
+}
+
 export async function analyzeMealPlanAction(
-  input: AnalyzeMealPlanInput
+  input: AnalyzeMealPlanActionInput
 ): Promise<AnalyzeMealPlanOutput | { error: string }> {
   try {
+    if (!input.planName || input.planName.trim() === "") {
+      return { error: "分析膳食计划时计划名称不能为空。" };
+    }
     if (!input.planDescription || input.planDescription.trim() === "") {
       return { error: "分析膳食计划时计划描述不能为空。" };
     }
@@ -213,7 +224,12 @@ export async function analyzeMealPlanAction(
       return { error: "分析膳食计划时膳食计划数据不能为空。" };
     }
     
-    const result = await analyzeMealPlan(input);
+    // Prepare input for the AI flow (which doesn't need planName)
+    const flowInput: AnalyzeMealPlanFlowInput = {
+        planDescription: input.planDescription,
+        weeklyMealPlan: input.weeklyMealPlan,
+    };
+    const result = await analyzeMealPlan(flowInput);
 
     if (!result || !result.analysisText) {
       if (result && (result as any).error) {
@@ -221,6 +237,17 @@ export async function analyzeMealPlanAction(
       }
       return { error: "AI未能生成膳食计划分析。" };
     }
+
+    // Save the analysis text to the database
+    try {
+      await saveMealPlanAnalysisToDb(input.planName, result.analysisText);
+    } catch (dbError) {
+      console.error("分析后未能保存膳食计划分析到数据库:", dbError);
+      // Decide if this should be a hard error for the user. 
+      // For now, let's return the analysis but log the save error.
+      // Optionally, add a non-blocking error message to the user or a specific error code.
+    }
+
     return result;
   } catch (e) {
     console.error("分析膳食计划时出错:", e);
@@ -229,8 +256,27 @@ export async function analyzeMealPlanAction(
   }
 }
 
+export async function getMealPlanAnalysisAction(
+  planName: string
+): Promise<{ analysisText: string | null } | { error: string } | null> {
+  if (!planName || planName.trim() === "") {
+    return null; 
+  }
+  try {
+    const analysisData = await getMealPlanAnalysisFromDb(planName);
+    if (analysisData === null) { // Plan not found or no analysis yet
+      return null; 
+    }
+    return analysisData; // { analysisText: string | null }
+  } catch (e) {
+    console.error("从数据库获取膳食计划分析时出错:", e);
+    const errorMessage = e instanceof Error ? e.message : "获取膳食计划分析时发生未知错误。";
+    return { error: errorMessage };
+  }
+}
 
-// Action specific input type
+
+// Action specific input type for shopping list
 export interface GenerateShoppingListActionInput {
   planName: string;
   weeklyMealPlan: DailyMealPlan[];
@@ -261,14 +307,10 @@ export async function generateShoppingListAction(
       return { error: "AI未能生成购物清单。" };
     }
 
-    // Save the generated shopping list to the database
     try {
       await saveShoppingListToDb(input.planName, result.shoppingListText);
     } catch (dbError) {
       console.error("生成后未能保存购物清单到数据库:", dbError);
-      // Proceed to return the list to the user, but notify about DB save failure.
-      // Or, return an error if saving is critical. For now, let's return the list with a console warning.
-      // Optionally, add a non-blocking error message to the user.
     }
 
     return result;
