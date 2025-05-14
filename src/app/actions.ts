@@ -5,6 +5,7 @@ import { generateWeeklyMealPlan, type GenerateWeeklyMealPlanInput, type Generate
 import { generateRecipeDetails, type GenerateRecipeDetailsInput, type GenerateRecipeDetailsOutput } from "@/ai/flows/generate-recipe-details";
 import { suggestRecipe, type SuggestRecipeInput, type SuggestRecipeOutput } from "@/ai/flows/suggest-recipe";
 import { analyzeMealPlan, type AnalyzeMealPlanInput, type AnalyzeMealPlanOutput } from "@/ai/flows/analyze-meal-plan";
+import { generateShoppingList, type GenerateShoppingListInput, type GenerateShoppingListOutput } from "@/ai/flows/generate-shopping-list";
 import { 
   saveMealPlanToDb as saveMealPlanToDbInternal, 
   getMealPlanByNameFromDb,
@@ -235,3 +236,27 @@ export async function analyzeMealPlanAction(
   }
 }
 
+export async function generateShoppingListAction(
+  input: GenerateShoppingListInput
+): Promise<GenerateShoppingListOutput | { error: string }> {
+  try {
+    if (!input.weeklyMealPlan || input.weeklyMealPlan.length === 0) {
+      return { error: "生成购物清单时膳食计划数据不能为空。" };
+    }
+    // planDescription is optional for shopping list generation
+    
+    const result = await generateShoppingList(input);
+
+    if (!result || !result.shoppingListText) {
+      if (result && (result as any).error) {
+        return { error: 'AI 购物清单错误: ' + String((result as any).error) };
+      }
+      return { error: "AI未能生成购物清单。" };
+    }
+    return result;
+  } catch (e) {
+    console.error("生成购物清单时出错:", e);
+    const errorMessage = e instanceof Error ? e.message : "生成购物清单时发生未知错误。";
+    return { error: errorMessage };
+  }
+}

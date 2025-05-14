@@ -6,7 +6,8 @@ import { useMealPlan, type MealPlanData } from "@/contexts/MealPlanContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import DailyMealCard from "./DailyMealCard";
 import AddRecipeDialog from "./AddRecipeDialog";
-import MealPlanAnalysis from "./MealPlanAnalysis"; // Import the new component
+import MealPlanAnalysis from "./MealPlanAnalysis"; 
+import ShoppingListGenerator from "./ShoppingListGenerator"; // Import the new component
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2, Utensils } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ export default function GeneratedMealPlan() {
   const isLoading = isMealPlanContextLoading || isProfileLoading;
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
+    if (isMealPlanContextLoading) return; // Prevent multiple loads if context is already loading
     setMealPlanLoading(true);
     setError(null); 
     let planDataToSet: MealPlanData | null = null;
@@ -49,10 +51,9 @@ export default function GeneratedMealPlan() {
         }
       } else { 
         if (result && "error" in result) {
+          // Only log error, don't setMealPlanError to allow "No plan" message
           console.warn(`无法检索计划 "${planNameToLoad}" 进行显示: ${result.error}。`);
         }
-        // Ensure UI shows "no plan" state rather than an error for "not found"
-        // setError(null); // Keep error null if plan just not found
         planDataToSet = null; 
       }
     } else { 
@@ -61,11 +62,11 @@ export default function GeneratedMealPlan() {
     
     setMealPlan(planDataToSet);
     setMealPlanLoading(false);
-  }, [setMealPlan, setError, setMealPlanLoading]);
+  }, [setMealPlan, setError, setMealPlanLoading, isMealPlanContextLoading]);
 
 
   useEffect(() => {
-    if (!isProfileLoading) { 
+    if (!isProfileLoading && activePlanName !== undefined) { // Ensure activePlanName is resolved
         loadPlan(activePlanName);
     }
   }, [activePlanName, isProfileLoading, loadPlan]);
@@ -113,11 +114,12 @@ export default function GeneratedMealPlan() {
           title: "计划已移除",
           description: `膳食计划 "${planNameToDelete}" 已被移除。`,
         });
-        setMealPlan(null); 
-        setActivePlanName(null); // This will trigger useEffect in UserProfileContext to update DB and localStorage
+        setMealPlan(null); // Clear local meal plan state
+        setActivePlanName(null); // This will trigger update in DB and localStorage via UserProfileContext
         await refreshPlanListSelector(); 
       } else {
-        setError(result.error || "从数据库移除计划失败。");
+        // Don't set global error, let toast handle it
+        // setError(result.error || "从数据库移除计划失败。");
         toast({
           title: "移除计划错误",
           description: result.error || "无法从数据库中移除该计划。",
@@ -126,7 +128,7 @@ export default function GeneratedMealPlan() {
       }
     } catch (e: any) {
       const errorMessage = e.message || "移除计划时发生意外错误。";
-      setError(errorMessage);
+      // setError(errorMessage);
       toast({
         title: "移除时出错",
         description: errorMessage,
@@ -175,6 +177,7 @@ export default function GeneratedMealPlan() {
         description: "缺少计划描述。AI推荐功能可能无法正常工作。",
         variant: "warning",
       });
+      // Allow adding manually even if description is missing
     }
     setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
     setIsAddRecipeDialogOpen(true);
@@ -236,9 +239,10 @@ export default function GeneratedMealPlan() {
       </div>
     );
   }
-
-  // This error condition is now less likely to be hit if loadPlan sets error to null for "not found"
+  
   if (mealPlanError && (!mealPlan || !mealPlan.weeklyMealPlan || mealPlan.weeklyMealPlan.length === 0)) {
+     // This state should ideally not be reached if loadPlan handles errors by setting mealPlan to null.
+     // If it is, it implies an unexpected error state.
     return (
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-5 w-5" />
@@ -309,8 +313,7 @@ export default function GeneratedMealPlan() {
         />
       )}
       <MealPlanAnalysis currentMealPlan={mealPlan} />
+      <ShoppingListGenerator currentMealPlan={mealPlan} />
     </div>
   );
 }
-
-
