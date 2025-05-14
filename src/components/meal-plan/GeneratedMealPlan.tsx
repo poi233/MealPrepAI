@@ -9,7 +9,7 @@ import AddRecipeDialog from "./AddRecipeDialog";
 import MealPlanAnalysis from "./MealPlanAnalysis"; 
 import ShoppingListGenerator from "./ShoppingListGenerator";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2, Utensils, CalendarDays, Brain, ListChecks, Filter } from "lucide-react";
+import { AlertCircle, Trash2, Utensils, CalendarDays, Brain, ListChecks, Filter, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
@@ -18,6 +18,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -45,13 +55,15 @@ export default function GeneratedMealPlan() {
   const { mealPlan, isLoading: isMealPlanContextLoading, error: mealPlanError, setMealPlan, setError, setIsLoading: setMealPlanLoading } = useMealPlan();
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
-  const { fetchPlanNames: refreshPlanListSelector } = usePlanList(); 
+  const { fetchPlanNames: refreshPlanListSelector, isLoadingPlans: isPlanListSelectorLoading } = usePlanList(); 
 
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
   const [addRecipeTarget, setAddRecipeTarget] = useState<{ day: string; mealTypeKey: MealTypeKey; mealTypeTitle: string } | null>(null);
   
   const [displayMode, setDisplayMode] = useState<'today' | 'all' | string>('today');
   const [currentDayName, setCurrentDayName] = useState<string>('');
+  const [isConfirmRemoveDialogOpen, setIsConfirmRemoveDialogOpen] = useState(false);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
   const isLoading = isMealPlanContextLoading || isProfileLoading;
 
@@ -66,6 +78,8 @@ export default function GeneratedMealPlan() {
 
 
   const loadPlan = useCallback(async (planNameToLoad: string | null) => {
+    if (isMealPlanContextLoading) return; // Prevent multiple loads
+
     setMealPlanLoading(true);
     setError(null);
     let planDataToSet: MealPlanData | null = null;
@@ -81,12 +95,12 @@ export default function GeneratedMealPlan() {
               analysisText: result.analysisText 
             };
           } else {
-            console.warn(`Plan "${planNameToLoad}" data is malformed. MealPlanData or weeklyMealPlan is missing.`);
+            console.warn(`Plan "${planNameToLoad}" data is malformed or empty. MealPlanData or weeklyMealPlan is missing.`);
             planDataToSet = null; 
           }
         } else {
           if (result && "error" in result) {
-            console.warn(`无法加载计划 "${planNameToLoad}": ${result.error}.`);
+             console.warn(`无法加载计划 "${planNameToLoad}": ${result.error}.`);
           } else if (!result) {
              console.warn(`未找到计划 "${planNameToLoad}" 或 getSavedMealPlanByNameAction 返回 null.`);
           }
@@ -102,7 +116,7 @@ export default function GeneratedMealPlan() {
     } finally {
       setMealPlanLoading(false);
     }
-  }, [setMealPlan, setError, setMealPlanLoading]);
+  }, [setMealPlan, setError, setMealPlanLoading, isMealPlanContextLoading]);
 
 
   useEffect(() => {
@@ -128,7 +142,8 @@ export default function GeneratedMealPlan() {
         title: "计划已更新",
         description: "您的膳食计划更改已保存到数据库。",
       });
-      await loadPlan(activePlanName);
+      // No need to reload here as setMealPlan directly updates local state, and DB is source of truth on next full load.
+      // await loadPlan(activePlanName); 
 
     } catch (dbError: any) {
       console.error("保存膳食计划到数据库失败:", dbError); 
@@ -140,14 +155,14 @@ export default function GeneratedMealPlan() {
     }
   };
 
-  const handleClearPlan = async () => {
+  const confirmRemovePlan = async () => {
     if (!activePlanName) {
         toast({ title: "无活动计划", description: "没有活动的计划可以移除。", variant: "default"});
+        setIsConfirmRemoveDialogOpen(false);
         return;
     }
-    setMealPlanLoading(true);
-    setError(null);
     
+    setIsDeletingPlan(true);
     const planNameToDelete = activePlanName; 
 
     try {
@@ -175,7 +190,8 @@ export default function GeneratedMealPlan() {
         variant: "destructive",
       });
     } finally {
-        setMealPlanLoading(false);
+        setIsDeletingPlan(false);
+        setIsConfirmRemoveDialogOpen(false);
     }
   };
 
@@ -332,12 +348,12 @@ export default function GeneratedMealPlan() {
           <Button
               variant="outline"
               size="sm"
-              onClick={handleClearPlan}
+              onClick={() => setIsConfirmRemoveDialogOpen(true)}
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              disabled={isLoading} 
+              disabled={isLoading || isDeletingPlan} 
             >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> 
-              {isLoading ? "处理中..." : "全部移除"}
+              {isDeletingPlan ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" /> }
+              {isDeletingPlan ? "处理中..." : "全部移除"}
           </Button>
         )}
       </div>
@@ -360,7 +376,11 @@ export default function GeneratedMealPlan() {
 
         <TabsContent value="weekly-plan" className="mt-4">
           <div className="mb-4 flex items-center gap-2">
-            <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}>
+            <Select 
+                value={displayMode} 
+                onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}
+                disabled={isPlanListSelectorLoading || isLoading}
+            >
               <SelectTrigger className="w-auto min-w-[200px]">
                 <div className="flex items-center">
                   <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -423,6 +443,26 @@ export default function GeneratedMealPlan() {
           planDescription={mealPlan.planDescription || ""} 
         />
       )}
+      
+      <AlertDialog open={isConfirmRemoveDialogOpen} onOpenChange={setIsConfirmRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认移除计划</AlertDialogTitle>
+            <AlertDialogDescription>
+              您确定要移除当前的膳食计划 "{activePlanName}" 吗？
+              此操作也会从数据库中删除它，且无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmRemoveDialogOpen(false)} disabled={isDeletingPlan}>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemovePlan} disabled={isDeletingPlan} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeletingPlan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeletingPlan ? "正在移除..." : "确认移除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
