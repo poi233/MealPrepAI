@@ -360,10 +360,12 @@ export default function GeneratedMealPlan() {
 
         <TabsContent value="weekly-plan" className="mt-4">
           <div className="mb-4 flex items-center gap-2">
-            <Filter className="h-5 w-5 text-muted-foreground" />
             <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'today' | 'all' | string)}>
-              <SelectTrigger className="w-auto min-w-[200px] h-10 text-sm pl-3 pr-2">
-                <SelectValue placeholder="选择显示方式" />
+              <SelectTrigger className="w-auto min-w-[200px]">
+                <div className="flex items-center">
+                  <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="选择显示方式" />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="today" className="text-sm">显示今天 ({currentDayName})</SelectItem>
