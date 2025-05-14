@@ -139,7 +139,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   const canGenerate = !!currentMealPlan && !!currentMealPlan.weeklyMealPlan && currentMealPlan.weeklyMealPlan.length > 0 && !!activePlanName;
 
   return (
-    <Card className="mt-4 shadow-lg"> {/* Reduced top margin as it's in a tab */}
+    <Card className="mt-4 shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <ListChecks className="h-6 w-6 text-primary" />
@@ -212,7 +212,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
             {fetchedShoppingListText.trim() === "" ? (
                 <p className="text-sm text-muted-foreground italic p-4 text-center">购物清单为空或尚未生成详细内容。</p>
             ) : (
-                <div className="p-4 border rounded-md bg-card shadow-inner max-h-96 overflow-y-auto">
+                <div className="p-4 border rounded-md bg-card shadow-inner">
                     <div className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{fetchedShoppingListText}</ReactMarkdown>
                     </div>
@@ -224,3 +224,4 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
     </Card>
   );
 }
+
