@@ -24,11 +24,7 @@ async function ensureMealPlansTableExists(): Promise<void> {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
-    // Ensure plan_name has a unique index if not already covered by UNIQUE constraint
-    // (UNIQUE constraint implicitly creates an index)
-    // await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_name_unique ON meal_plans (plan_name);`;
-
-    // Add is_active column if it doesn't exist (for migration from older schema)
+    
     const result = await sql`
       SELECT column_name 
       FROM information_schema.columns 
@@ -38,7 +34,6 @@ async function ensureMealPlansTableExists(): Promise<void> {
       await sql`ALTER TABLE meal_plans ADD COLUMN is_active BOOLEAN DEFAULT FALSE;`;
     }
     
-    // Add plan_description column if it doesn't exist (for migration)
     const descResult = await sql`
       SELECT column_name
       FROM information_schema.columns
@@ -47,14 +42,36 @@ async function ensureMealPlansTableExists(): Promise<void> {
     if (descResult.rows.length === 0) {
         await sql`ALTER TABLE meal_plans ADD COLUMN plan_description TEXT NOT NULL DEFAULT 'No description provided.';`;
     }
-    // Old dietary_preferences column cleanup (if exists and no longer needed)
-    // This should be handled carefully, potentially as a separate migration script.
-    // For now, we assume new tables or this will be handled manually if migrating.
   } catch (error) {
     console.error("Database error: Failed to ensure 'meal_plans' table exists/is updated:", error);
-    throw new Error("Failed to initialize database table.");
+    throw new Error("Failed to initialize database table 'meal_plans'.");
   }
 }
+
+async function ensureShoppingListsTableExists(): Promise<void> {
+  await ensureMealPlansTableExists(); // Ensure meal_plans table exists first
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS shopping_lists (
+        id SERIAL PRIMARY KEY,
+        meal_plan_name TEXT NOT NULL UNIQUE,
+        shopping_list_text TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_meal_plan
+          FOREIGN KEY(meal_plan_name) 
+          REFERENCES meal_plans(plan_name)
+          ON DELETE CASCADE
+      );
+    `;
+    // Index on meal_plan_name for faster lookups if not already created by UNIQUE constraint
+    // await sql`CREATE INDEX IF NOT EXISTS idx_shopping_lists_meal_plan_name ON shopping_lists (meal_plan_name);`;
+  } catch (error) {
+    console.error("Database error: Failed to ensure 'shopping_lists' table exists:", error);
+    throw new Error("Failed to initialize database table 'shopping_lists'.");
+  }
+}
+
 
 export async function saveMealPlanToDb(
   planName: string,
@@ -63,12 +80,6 @@ export async function saveMealPlanToDb(
 ): Promise<void> {
   await ensureMealPlansTableExists();
   try {
-    // When saving, is_active is not directly set here. setActivePlanInDb handles that.
-    // If a plan with plan_name exists, it's updated. Otherwise, a new plan is inserted.
-    // The is_active status of the updated/inserted plan is NOT changed by this function.
-    // It defaults to FALSE on insert if not specified, or retains its value on update if not specified.
-    // The current ON CONFLICT only updates description and data, is_active would remain.
-    // This is fine, as setActivePlanInDb is the sole controller of is_active.
     await sql`
       INSERT INTO meal_plans (plan_name, plan_description, meal_plan_data, updated_at)
       VALUES (${planName}, ${planDescription}, ${JSON.stringify(mealPlanData)}::jsonb, NOW())
@@ -110,12 +121,14 @@ export async function getMealPlanByNameFromDb(planName: string): Promise<{ mealP
 }
 
 export async function deleteMealPlanFromDbByName(planName: string): Promise<void> {
-  await ensureMealPlansTableExists();
+  await ensureMealPlansTableExists(); // Ensures meal_plans table is there
+  await ensureShoppingListsTableExists(); // Ensures shopping_lists table is there for CASCADE to work if defined or for manual deletion
   if (!planName || planName.trim() === "") {
     console.warn("Attempted to delete meal plan with empty plan name.");
     return;
   }
   try {
+    // ON DELETE CASCADE on shopping_lists table will handle deletion of associated shopping list.
     const result = await sql`
       DELETE FROM meal_plans
       WHERE plan_name = ${planName};
@@ -123,7 +136,7 @@ export async function deleteMealPlanFromDbByName(planName: string): Promise<void
     if (result.rowCount === 0) {
       console.log(`No meal plan found with name "${planName}" to delete.`);
     } else {
-      console.log(`Successfully deleted meal plan with name "${planName}".`);
+      console.log(`Successfully deleted meal plan with name "${planName}" and its associated shopping list (if any via CASCADE).`);
     }
   } catch (error) {
     console.error("Database error: Failed to delete meal plan by name:", error);
@@ -168,18 +181,13 @@ export async function getActiveMealPlanFromDb(): Promise<{ planName: string; pla
 
 export async function setActivePlanInDb(planName: string): Promise<void> {
   await ensureMealPlansTableExists();
-  // planName can be an empty string to signify clearing all active plans.
-  // A non-empty planName signifies setting that specific plan to active.
-
   const effectivePlanName = planName.trim();
 
   try {
     await sql.query('BEGIN');
     
-    // Always set all currently active plans to inactive
     await sql`UPDATE meal_plans SET is_active = FALSE WHERE is_active = TRUE;`;
     
-    // If a non-empty planName is provided, set that plan to active
     if (effectivePlanName !== "") {
       const result = await sql`
         UPDATE meal_plans SET is_active = TRUE, updated_at = NOW()
@@ -187,13 +195,10 @@ export async function setActivePlanInDb(planName: string): Promise<void> {
       `;
 
       if (result.rowCount === 0) {
-        // If the plan to be activated doesn't exist, rollback.
-        // This also means if an empty plan name was effectively passed (e.g. "   "), nothing is set to active.
         await sql.query('ROLLBACK');
         throw new Error(`Plan with name "${effectivePlanName}" not found. Cannot set as active.`);
       }
     }
-    // If effectivePlanName is "", all plans are now inactive.
     
     await sql.query('COMMIT');
 
@@ -204,8 +209,55 @@ export async function setActivePlanInDb(planName: string): Promise<void> {
     }
 
   } catch (error) {
-    await sql.query('ROLLBACK'); // Rollback on any error during the transaction
+    await sql.query('ROLLBACK'); 
     console.error(`Database error: Failed to set active plan status for "${planName}" (effective: "${effectivePlanName}"):`, error);
     throw new Error(`Failed to update active plan status for "${planName}": ${(error as Error).message}`);
+  }
+}
+
+// Shopping List specific functions
+export async function saveShoppingListToDb(planName: string, shoppingListText: string): Promise<void> {
+  await ensureShoppingListsTableExists();
+  if (!planName || planName.trim() === "") {
+    throw new Error("Plan name cannot be empty when saving shopping list.");
+  }
+  if (shoppingListText === null || shoppingListText === undefined) { // Allow empty string
+      throw new Error("Shopping list text cannot be null or undefined.");
+  }
+  try {
+    await sql`
+      INSERT INTO shopping_lists (meal_plan_name, shopping_list_text, updated_at)
+      VALUES (${planName}, ${shoppingListText}, NOW())
+      ON CONFLICT (meal_plan_name) 
+      DO UPDATE SET 
+        shopping_list_text = EXCLUDED.shopping_list_text,
+        updated_at = NOW();
+    `;
+  } catch (error) {
+    console.error(`Database error: Failed to save shopping list for plan "${planName}":`, error);
+    throw new Error(`Failed to save shopping list for plan "${planName}" to the database.`);
+  }
+}
+
+export async function getShoppingListByPlanNameFromDb(planName: string): Promise<{ shoppingListText: string } | null> {
+  await ensureShoppingListsTableExists();
+  if (!planName || planName.trim() === "") {
+    return null;
+  }
+  try {
+    const { rows } = await sql`
+      SELECT shopping_list_text FROM shopping_lists
+      WHERE meal_plan_name = ${planName}
+      LIMIT 1;
+    `;
+    if (rows.length > 0) {
+      return {
+        shoppingListText: rows[0].shopping_list_text as string,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Database error: Failed to retrieve shopping list for plan "${planName}":`, error);
+    throw new Error(`Failed to retrieve shopping list for plan "${planName}" from the database.`);
   }
 }
