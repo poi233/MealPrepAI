@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -58,31 +59,43 @@ interface GenerateMealPlanDialogProps {
   onPlanGenerated?: (newlyGeneratedPlanName: string) => void; 
 }
 
-const DEFAULT_PLAN_NAME = "我的默认计划";
 const DEFAULT_PLAN_DESCRIPTION = "一个均衡健康的每周膳食计划。请包含多种蛋白质来源、蔬菜和全谷物。避免过多的糖和加工食品。请用中文生成食谱详情。";
 
 export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerated }: GenerateMealPlanDialogProps) {
   const { toast } = useToast();
   const { setActivePlanName, activePlanName: currentActivePlanName } = useUserProfile();
-  const { setMealPlan, setIsLoading: setMealPlanLoading, setError: setMealPlanError, isLoading: isMealPlanLoading } = useMealPlan();
+  const { mealPlan, setMealPlan, setIsLoading: setMealPlanLoading, setError: setMealPlanError, isLoading: isMealPlanLoading } = useMealPlan();
 
   const form = useForm<MealPlanFormValues>({
     resolver: zodResolver(mealPlanFormSchema),
-    defaultValues: {
-      planName: DEFAULT_PLAN_NAME,
+    defaultValues: { // These are initial defaults, useEffect will override when dialog opens.
+      planName: "", 
       planDescription: DEFAULT_PLAN_DESCRIPTION,
     },
   });
 
   useEffect(() => {
     if (isOpen) {
+      let nameToSet = "";
+      let descriptionToSet = DEFAULT_PLAN_DESCRIPTION;
+
+      if (currentActivePlanName) {
+        nameToSet = currentActivePlanName;
+        // If there's an active plan name, and the mealPlan context has a description,
+        // assume it's for the active plan and use it.
+        if (mealPlan && mealPlan.planDescription) {
+          descriptionToSet = mealPlan.planDescription;
+        }
+      }
+      // If currentActivePlanName is null, nameToSet remains "" (empty)
+      // and descriptionToSet remains DEFAULT_PLAN_DESCRIPTION.
+      
       form.reset({
-        planName: currentActivePlanName || DEFAULT_PLAN_NAME,
-        planDescription: DEFAULT_PLAN_DESCRIPTION 
+        planName: nameToSet,
+        planDescription: descriptionToSet,
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, currentActivePlanName]); 
+  }, [isOpen, currentActivePlanName, mealPlan, form]);
 
   async function onSubmit(values: MealPlanFormValues) {
     setMealPlanLoading(true);
@@ -108,9 +121,11 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
           description: generationResult.error,
           variant: "destructive",
         });
-        setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); 
+        // Preserve current description in context if plan generation fails for an existing plan
+        const currentContextDescription = mealPlan?.planDescription || values.planDescription;
+        setMealPlan({ weeklyMealPlan: [], planDescription: currentContextDescription }); 
       } else {
-        setMealPlan({ ...generationResult, planDescription: values.planDescription });
+        setMealPlan({ ...generationResult, planDescription: values.planDescription, analysisText: null }); // Reset analysisText on new generation/update
         setActivePlanName(normalizedPlanName); 
         toast({
           title: isUpdate ? "膳食计划已更新！" : "膳食计划已生成！",
@@ -124,7 +139,8 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
     } catch (e: any) { 
       const errorMessage = e.message || "发生意外错误。";
       setMealPlanError(errorMessage); 
-      setMealPlan({ weeklyMealPlan: [], planDescription: values.planDescription }); 
+      const currentContextDescription = mealPlan?.planDescription || values.planDescription;
+      setMealPlan({ weeklyMealPlan: [], planDescription: currentContextDescription }); 
       toast({
         title: "操作错误",
         description: errorMessage,
@@ -202,4 +218,3 @@ export default function GenerateMealPlanDialog({ isOpen, onClose, onPlanGenerate
     </Dialog>
   );
 }
-
