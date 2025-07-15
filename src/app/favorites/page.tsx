@@ -4,12 +4,15 @@
 
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoritesGrid, EmptyFavoritesState } from '@/components/favorites/FavoritesGrid';
+import { FavoritesFilters } from '@/components/favorites/FavoritesFilters';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { FavoriteFilters } from '@/types/favorites.types';
 
 export default function FavoritesPage() {
   const router = useRouter();
@@ -20,8 +23,127 @@ export default function FavoritesPage() {
     rateMeal,
     deleteFavorite,
     bulkDelete,
-    refreshData
+    refreshData,
+    searchFavorites
   } = useFavorites();
+
+  // Local state for filters
+  const [filters, setFiltersState] = useState<FavoriteFilters>({
+    searchQuery: '',
+    selectedTags: [],
+    selectedCollections: [],
+    cuisineTypes: [],
+    mealTypes: [],
+    ratingRange: [1, 5],
+    difficultyLevels: [],
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
+  // Extract available tags and cuisines from favorites data
+  const { availableTags, availableCuisines, filteredFavorites } = useMemo(() => {
+    const tags = new Set<string>();
+    const cuisines = new Set<string>();
+    
+    favorites.forEach(favorite => {
+      favorite.tags.forEach(tag => tags.add(tag));
+      cuisines.add(favorite.cuisine);
+    });
+
+    // Apply filters locally
+    let filtered = [...favorites];
+
+    // Apply search query
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase();
+      filtered = filtered.filter(fav => 
+        fav.name.toLowerCase().includes(query) ||
+        fav.description.toLowerCase().includes(query) ||
+        fav.ingredients.some(ing => ing.toLowerCase().includes(query)) ||
+        fav.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply tag filters
+    if (filters.selectedTags.length > 0) {
+      filtered = filtered.filter(fav =>
+        filters.selectedTags.some(tag => fav.tags.includes(tag))
+      );
+    }
+
+    // Apply cuisine filter
+    if (filters.cuisineTypes.length > 0) {
+      filtered = filtered.filter(fav =>
+        filters.cuisineTypes.includes(fav.cuisine)
+      );
+    }
+
+    // Apply meal type filter
+    if (filters.mealTypes.length > 0) {
+      filtered = filtered.filter(fav =>
+        filters.mealTypes.includes(fav.mealType)
+      );
+    }
+
+    // Apply rating filter
+    const [minRating, maxRating] = filters.ratingRange;
+    filtered = filtered.filter(fav =>
+      fav.rating >= minRating && fav.rating <= maxRating
+    );
+
+    // Apply difficulty filter
+    if (filters.difficultyLevels.length > 0) {
+      filtered = filtered.filter(fav =>
+        filters.difficultyLevels.includes(fav.difficulty)
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'rating':
+          comparison = a.rating - b.rating;
+          break;
+        case 'date':
+          comparison = a.createdAt.getTime() - b.createdAt.getTime();
+          break;
+        case 'usage':
+          comparison = a.useCount - b.useCount;
+          break;
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+      }
+      
+      return filters.sortOrder === 'desc' ? -comparison : comparison;
+    });
+
+    return {
+      availableTags: Array.from(tags).sort(),
+      availableCuisines: Array.from(cuisines).sort(),
+      filteredFavorites: filtered
+    };
+  }, [favorites, filters]);
+
+  const handleFiltersChange = (newFilters: Partial<FavoriteFilters>) => {
+    setFiltersState(prev => ({ ...prev, ...newFilters }));
+  };
+
+  const handleClearFilters = () => {
+    setFiltersState({
+      searchQuery: '',
+      selectedTags: [],
+      selectedCollections: [],
+      cuisineTypes: [],
+      mealTypes: [],
+      ratingRange: [1, 5],
+      difficultyLevels: [],
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+  };
 
   const handleAddToPlan = (favorite: any) => {
     // This would integrate with the meal plan system
@@ -79,16 +201,30 @@ export default function FavoritesPage() {
           onBrowseRecipes={() => router.push('/')}
         />
       ) : (
-        <FavoritesGrid
-          favorites={favorites}
-          onRatingChange={rateMeal}
-          onDelete={deleteFavorite}
-          onBulkDelete={bulkDelete}
-          onAddToPlan={handleAddToPlan}
-          onAddToCollection={handleAddToCollection}
-          onShare={handleShare}
-          isLoading={isLoading}
-        />
+        <div className="space-y-6">
+          {/* Filters */}
+          <FavoritesFilters
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onClearFilters={handleClearFilters}
+            availableTags={availableTags}
+            availableCuisines={availableCuisines}
+            totalCount={favorites.length}
+            filteredCount={filteredFavorites.length}
+          />
+
+          {/* Favorites Grid */}
+          <FavoritesGrid
+            favorites={filteredFavorites}
+            onRatingChange={rateMeal}
+            onDelete={deleteFavorite}
+            onBulkDelete={bulkDelete}
+            onAddToPlan={handleAddToPlan}
+            onAddToCollection={handleAddToCollection}
+            onShare={handleShare}
+            isLoading={isLoading}
+          />
+        </div>
       )}
     </div>
   );
