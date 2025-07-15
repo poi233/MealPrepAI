@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { ListChecks, BookOpen, Trash2, Edit3 } from "lucide-react";
+import { CompactFavoriteButton } from "@/components/favorites/FavoriteButton";
+import { useFavorites } from "@/hooks/useFavorites";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import React from 'react'; 
@@ -27,6 +29,7 @@ interface MealItemCardProps {
 }
 
 export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
   
   return (
     <Card className="w-full shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col bg-card/90 backdrop-blur-sm">
@@ -39,6 +42,12 @@ export default function MealItemCard({ meal, onDelete, onEdit }: MealItemCardPro
             {meal?.recipeName || "食谱名称"}
           </CardTitle>
           <div className="flex gap-0.5 flex-shrink-0">
+            <CompactFavoriteButton
+              meal={meal}
+              isFavorite={isFavorite(meal.recipeName)}
+              onToggle={toggleFavorite}
+              className="h-5 w-5"
+            />
             {onEdit && (
               <Button
                 variant="ghost"

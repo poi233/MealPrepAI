@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { UtensilsCrossed, Sparkles, ListFilter } from 'lucide-react';
+import { UtensilsCrossed, Sparkles, ListFilter, Heart } from 'lucide-react';
 import GenerateMealPlanDialog from '@/components/meal-plan/GenerateMealPlanDialog';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { usePlanList } from '@/contexts/PlanListContext'; 
@@ -54,6 +54,15 @@ export default function Header() {
             <span>膳食规划AI</span>
           </Link>
           <nav className="flex items-center gap-2 flex-wrap">
+            <Link href="/favorites">
+              <Button 
+                variant="ghost" 
+                className="text-primary hover:bg-primary/10 h-9 text-xs sm:text-sm"
+              >
+                <Heart className="mr-1.5 h-4 w-4" />
+                我的收藏
+              </Button>
+            </Link>
             {(savedPlanNames.length > 0 || isLoadingPlans || isProfileLoading) && (
                 <Select
                   value={selectValue}
