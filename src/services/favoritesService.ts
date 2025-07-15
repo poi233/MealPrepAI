@@ -7,6 +7,7 @@ import {
   saveFavoriteToDb,
   getFavoritesByUserIdFromDb,
   updateFavoriteRatingInDb,
+  updateFavoriteTagsInDb,
   deleteFavoriteFromDb,
   saveCollectionToDb,
   getCollectionsByUserIdFromDb,
@@ -176,6 +177,118 @@ export class FavoritesService {
     } catch (error) {
       console.error('Error bulk deleting favorites:', error);
       throw new Error('Failed to delete favorite meals');
+    }
+  }
+
+  async bulkUpdateTags(favoriteIds: string[], tags: string[], userId: string, replace: boolean = true): Promise<void> {
+    try {
+      if (replace) {
+        // Replace existing tags with new ones
+        await Promise.all(favoriteIds.map(async (favoriteId) => {
+          const newTags = [...new Set(tags)]; // Deduplicate new tags only
+          await this.updateFavoriteTags(favoriteId, newTags, userId);
+        }));
+      } else {
+        // Add new tags to existing ones
+        const favorites = await this.getFavorites(userId);
+        const favoritesToUpdate = favorites.filter(fav => favoriteIds.includes(fav.id));
+        
+        await Promise.all(favoritesToUpdate.map(async (favorite) => {
+          const combinedTags = [...new Set([...favorite.tags, ...tags])]; // Merge and deduplicate
+          await this.updateFavoriteTags(favorite.id, combinedTags, userId);
+        }));
+      }
+      
+      // Invalidate cache
+      invalidateCache(`favorites:${userId}`);
+      invalidateCache(`analytics:${userId}`);
+    } catch (error) {
+      console.error('Error bulk updating tags:', error);
+      throw new Error('Failed to update tags for favorite meals');
+    }
+  }
+
+  async updateFavoriteTags(favoriteId: string, tags: string[], userId: string): Promise<void> {
+    try {
+      await updateFavoriteTagsInDb(favoriteId, tags);
+      
+      // Invalidate cache
+      invalidateCache(`favorites:${userId}`);
+      invalidateCache(`analytics:${userId}`);
+    } catch (error) {
+      console.error('Error updating favorite tags:', error);
+      throw new Error('Failed to update favorite tags');
+    }
+  }
+
+  async getTagAnalytics(userId: string): Promise<{
+    totalTags: number;
+    activeTags: number;
+    tagUsage: Array<{
+      tag: string;
+      count: number;
+      percentage: number;
+      averageRating: number;
+      cuisines: string[];
+    }>;
+  }> {
+    try {
+      const cacheKey = getCacheKey('tag-analytics', userId);
+      const cached = getCache<any>(cacheKey);
+      if (cached) return cached;
+
+      const favorites = await this.getFavorites(userId);
+      const tagMap = new Map<string, {
+        count: number;
+        ratings: number[];
+        cuisines: Set<string>;
+      }>();
+
+      favorites.forEach(favorite => {
+        favorite.tags.forEach(tag => {
+          if (!tagMap.has(tag)) {
+            tagMap.set(tag, {
+              count: 0,
+              ratings: [],
+              cuisines: new Set()
+            });
+          }
+          
+          const tagData = tagMap.get(tag)!;
+          tagData.count++;
+          tagData.ratings.push(favorite.rating);
+          tagData.cuisines.add(favorite.cuisine);
+        });
+      });
+
+      const totalFavorites = favorites.length;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      
+      const tagUsage = Array.from(tagMap.entries()).map(([tag, data]) => ({
+        tag,
+        count: data.count,
+        percentage: totalFavorites > 0 ? (data.count / totalFavorites) * 100 : 0,
+        averageRating: data.ratings.reduce((sum, rating) => sum + rating, 0) / data.ratings.length,
+        cuisines: Array.from(data.cuisines)
+      })).sort((a, b) => b.count - a.count);
+
+      const activeTags = favorites
+        .filter(fav => fav.lastUsed > thirtyDaysAgo)
+        .flatMap(fav => fav.tags)
+        .filter((tag, index, arr) => arr.indexOf(tag) === index)
+        .length;
+
+      const analytics = {
+        totalTags: tagMap.size,
+        activeTags,
+        tagUsage
+      };
+
+      setCache(cacheKey, analytics, 3600000); // 1 hour
+      return analytics;
+    } catch (error) {
+      console.error('Error getting tag analytics:', error);
+      throw new Error('Failed to retrieve tag analytics');
     }
   }
 

@@ -8,8 +8,16 @@ import { useMemo, useState } from 'react';
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoritesGrid, EmptyFavoritesState } from '@/components/favorites/FavoritesGrid';
 import { FavoritesFilters } from '@/components/favorites/FavoritesFilters';
+import { TagManager } from '@/components/favorites/TagManager';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from '@/components/ui/dialog';
+import { ArrowLeft, Plus, Tag as TagIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FavoriteFilters } from '@/types/favorites.types';
@@ -23,9 +31,13 @@ export default function FavoritesPage() {
     rateMeal,
     deleteFavorite,
     bulkDelete,
+    bulkTag,
     refreshData,
     searchFavorites
   } = useFavorites();
+
+  // State for selected favorites for bulk operations
+  const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
 
   // Local state for filters
   const [filters, setFiltersState] = useState<FavoriteFilters>({
@@ -187,12 +199,33 @@ export default function FavoritesPage() {
           </div>
         </div>
         
-        <Link href="/">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            生成膳食计划
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <TagIcon className="h-4 w-4" />
+                标签管理
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>标签管理</DialogTitle>
+              </DialogHeader>
+              <TagManager
+                favorites={favorites}
+                selectedFavorites={selectedFavorites}
+                onBulkTagUpdate={bulkTag}
+              />
+            </DialogContent>
+          </Dialog>
+          
+          <Link href="/">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              生成膳食计划
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Content */}
@@ -223,6 +256,8 @@ export default function FavoritesPage() {
             onAddToCollection={handleAddToCollection}
             onShare={handleShare}
             isLoading={isLoading}
+            selectedItems={selectedFavorites}
+            onSelectionChange={setSelectedFavorites}
           />
         </div>
       )}

@@ -24,6 +24,8 @@ interface FavoritesGridProps {
   onAddToCollection?: (favoriteId: string) => void;
   onBulkAddToCollection?: (favoriteIds: string[], collectionId: string) => void;
   onShare?: (favoriteId: string) => void;
+  selectedItems?: string[];
+  onSelectionChange?: (selectedIds: string[]) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -39,47 +41,84 @@ export function FavoritesGrid({
   onAddToCollection,
   onBulkAddToCollection,
   onShare,
+  selectedItems: externalSelectedItems,
+  onSelectionChange: externalOnSelectionChange,
   isLoading = false,
   className
 }: FavoritesGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [internalSelectedItems, setInternalSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Use external selection if provided, otherwise use internal
+  const selectedItemsSet = externalSelectedItems 
+    ? new Set(externalSelectedItems) 
+    : internalSelectedItems;
+  const showBulkActions = selectedItemsSet.size > 0;
 
   const handleSelectionChange = (favoriteId: string, selected: boolean) => {
-    const newSelection = new Set(selectedItems);
-    if (selected) {
-      newSelection.add(favoriteId);
+    if (externalOnSelectionChange) {
+      // Use external selection management
+      const currentSelection = externalSelectedItems || [];
+      const newSelection = selected
+        ? [...currentSelection, favoriteId]
+        : currentSelection.filter(id => id !== favoriteId);
+      externalOnSelectionChange(newSelection);
     } else {
-      newSelection.delete(favoriteId);
+      // Use internal selection management
+      const newSelection = new Set(internalSelectedItems);
+      if (selected) {
+        newSelection.add(favoriteId);
+      } else {
+        newSelection.delete(favoriteId);
+      }
+      setInternalSelectedItems(newSelection);
     }
-    setSelectedItems(newSelection);
-    setShowBulkActions(newSelection.size > 0);
   };
 
   const handleSelectAll = () => {
-    if (selectedItems.size === favorites.length) {
-      setSelectedItems(new Set());
-      setShowBulkActions(false);
+    if (externalOnSelectionChange) {
+      // Use external selection management
+      const currentSelection = externalSelectedItems || [];
+      if (currentSelection.length === favorites.length) {
+        externalOnSelectionChange([]);
+      } else {
+        externalOnSelectionChange(favorites.map(f => f.id));
+      }
     } else {
-      setSelectedItems(new Set(favorites.map(f => f.id)));
-      setShowBulkActions(true);
+      // Use internal selection management
+      if (internalSelectedItems.size === favorites.length) {
+        setInternalSelectedItems(new Set());
+      } else {
+        setInternalSelectedItems(new Set(favorites.map(f => f.id)));
+      }
     }
   };
 
   const handleBulkDelete = () => {
-    if (selectedItems.size > 0) {
-      onBulkDelete(Array.from(selectedItems));
-      setSelectedItems(new Set());
-      setShowBulkActions(false);
+    const selectedIds = Array.from(selectedItemsSet);
+    if (selectedIds.length > 0) {
+      onBulkDelete(selectedIds);
+      
+      // Clear selection
+      if (externalOnSelectionChange) {
+        externalOnSelectionChange([]);
+      } else {
+        setInternalSelectedItems(new Set());
+      }
     }
   };
 
   const handleBulkAddToCollection = (collectionId: string) => {
-    if (selectedItems.size > 0 && onBulkAddToCollection) {
-      onBulkAddToCollection(Array.from(selectedItems), collectionId);
-      setSelectedItems(new Set());
-      setShowBulkActions(false);
+    const selectedIds = Array.from(selectedItemsSet);
+    if (selectedIds.length > 0 && onBulkAddToCollection) {
+      onBulkAddToCollection(selectedIds, collectionId);
+      
+      // Clear selection
+      if (externalOnSelectionChange) {
+        externalOnSelectionChange([]);
+      } else {
+        setInternalSelectedItems(new Set());
+      }
     }
   };
 
@@ -163,12 +202,12 @@ export function FavoritesGrid({
             onClick={handleSelectAll}
             className="gap-2"
           >
-            {selectedItems.size === favorites.length ? (
+            {selectedItemsSet.size === favorites.length ? (
               <CheckSquare className="h-4 w-4" />
             ) : (
               <Square className="h-4 w-4" />
             )}
-            {selectedItems.size > 0 ? `已选择 ${selectedItems.size}` : '全选'}
+            {selectedItemsSet.size > 0 ? `已选择 ${selectedItemsSet.size}` : '全选'}
           </Button>
 
           <Separator orientation="vertical" className="h-6" />
@@ -210,7 +249,7 @@ export function FavoritesGrid({
             <div className="flex items-center gap-2">
               <CheckSquare className="h-5 w-5 text-teal-600" />
               <span className="font-medium text-teal-900">
-                已选择 {selectedItems.size} 个菜谱
+                已选择 {selectedItemsSet.size} 个菜谱
               </span>
             </div>
             
@@ -243,8 +282,11 @@ export function FavoritesGrid({
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setSelectedItems(new Set());
-                  setShowBulkActions(false);
+                  if (externalOnSelectionChange) {
+                    externalOnSelectionChange([]);
+                  } else {
+                    setInternalSelectedItems(new Set());
+                  }
                 }}
               >
                 取消
@@ -265,7 +307,7 @@ export function FavoritesGrid({
             onAddToPlan={onAddToPlan}
             onAddToCollection={onAddToCollection}
             onShare={onShare}
-            isSelected={selectedItems.has(favorite.id)}
+            isSelected={selectedItemsSet.has(favorite.id)}
             onSelectionChange={handleSelectionChange}
             viewMode={viewMode}
           />

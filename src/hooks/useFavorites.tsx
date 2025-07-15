@@ -42,7 +42,7 @@ interface UseFavoritesReturn {
   
   // Bulk operations
   bulkDelete: (favoriteIds: string[]) => Promise<void>;
-  bulkTag: (favoriteIds: string[], tags: string[]) => Promise<void>;
+  bulkTag: (favoriteIds: string[], tags: string[], replace?: boolean) => Promise<void>;
   bulkAddToCollection: (favoriteIds: string[], collectionId: string) => Promise<void>;
   
   // Filtering and search
@@ -366,13 +366,34 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     }
   }, [userId, toast]);
 
-  const bulkTag = useCallback(async (favoriteIds: string[], tags: string[]) => {
-    // This would need to be implemented in the service layer
-    toast({
-      title: "功能开发中",
-      description: "批量标签功能正在开发中",
-    });
-  }, [toast]);
+  const bulkTag = useCallback(async (favoriteIds: string[], tags: string[], replace: boolean = true) => {
+    setError(null);
+    
+    try {
+      await favoritesService.bulkUpdateTags(favoriteIds, tags, userId, replace);
+      
+      // Refresh favorites data
+      const [updatedFavorites, updatedAnalytics] = await Promise.all([
+        favoritesService.getFavorites(userId),
+        favoritesService.getAnalytics(userId)
+      ]);
+      setFavorites(updatedFavorites);
+      setAnalytics(updatedAnalytics);
+      
+      toast({
+        title: "批量标签成功",
+        description: `已为 ${favoriteIds.length} 个收藏${replace ? '替换' : '添加'}标签`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to bulk tag favorites';
+      setError(errorMessage);
+      toast({
+        title: "批量标签失败",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [userId, toast]);
 
   const bulkAddToCollection = useCallback(async (favoriteIds: string[], collectionId: string) => {
     setError(null);

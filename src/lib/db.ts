@@ -489,6 +489,28 @@ export async function updateFavoriteRatingInDb(favoriteId: string, rating: numbe
   }
 }
 
+export async function updateFavoriteTagsInDb(favoriteId: string, tags: string[]): Promise<void> {
+  await ensureFavoritesTablesExist();
+  try {
+    // Use a parameterized query - this should work correctly with postgres.js
+    const result = await sql`
+      UPDATE favorites 
+      SET 
+        tags = ${tags},
+        last_used = NOW()
+      WHERE id = ${favoriteId}
+    `;
+    
+    if (result.count === 0) {
+      throw new Error(`Favorite with id "${favoriteId}" not found.`);
+    }
+  } catch (error) {
+    console.error("Database error: Failed to update favorite tags:", error);
+    console.error("Error details:", error);
+    throw new Error("Failed to update favorite tags in database.");
+  }
+}
+
 export async function deleteFavoriteFromDb(favoriteId: string): Promise<void> {
   await ensureFavoritesTablesExist();
   try {
