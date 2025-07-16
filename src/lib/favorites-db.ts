@@ -90,7 +90,7 @@ export async function saveFavoriteToDb(favorite: Omit<FavoriteMealRecord, 'id' |
         ${favorite.user_id}, ${favorite.meal_id}, ${favorite.name}, ${favorite.description},
         ${favorite.image_url || null}, ${favorite.cuisine}, ${favorite.meal_type},
         ${JSON.stringify(favorite.ingredients)}::jsonb, ${favorite.cooking_time},
-        ${favorite.difficulty}, ${favorite.rating}, ${favorite.tags},
+        ${favorite.difficulty}, ${favorite.rating}, ${JSON.stringify(favorite.tags)},
         ${JSON.stringify(favorite.nutrition_info)}::jsonb,
         ${JSON.stringify(favorite.recipe_data)}::jsonb, ${favorite.use_count},
         ${favorite.is_shared}, ${favorite.shared_by || null}
@@ -180,12 +180,12 @@ export async function updateFavoriteTagsInDb(favoriteId: string, tags: string[])
     const result = await sql`
       UPDATE favorites 
       SET 
-        tags = ${tags},
+        tags = ${JSON.stringify(tags)},
         last_used = NOW()
       WHERE id = ${favoriteId}
     `;
     
-    if (result.count === 0) {
+    if (result.rowCount === 0) {
       throw new Error(`Favorite with id "${favoriteId}" not found.`);
     }
   } catch (error) {
@@ -219,7 +219,7 @@ export async function saveCollectionToDb(collection: Omit<FavoriteCollectionReco
       )
       VALUES (
         ${collection.user_id}, ${collection.name}, ${collection.description || null},
-        ${collection.color}, ${collection.icon}, ${collection.is_public}, ${collection.tags}
+        ${collection.color}, ${collection.icon}, ${collection.is_public}, ${JSON.stringify(collection.tags)}
       )
       RETURNING id;
     `;
@@ -227,6 +227,35 @@ export async function saveCollectionToDb(collection: Omit<FavoriteCollectionReco
   } catch (error) {
     console.error("Database error: Failed to save collection:", error);
     throw new Error("Failed to save collection to database.");
+  }
+}
+
+export async function updateCollectionInDb(
+  collectionId: string,
+  updates: Partial<Omit<FavoriteCollectionRecord, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
+): Promise<void> {
+  await ensureFavoritesTablesExist();
+  try {
+    const { rows } = await sql`
+      UPDATE favorite_collections 
+      SET 
+        name = COALESCE(${updates.name || null}, name),
+        description = COALESCE(${updates.description || null}, description),
+        color = COALESCE(${updates.color || null}, color),
+        icon = COALESCE(${updates.icon || null}, icon),
+        is_public = COALESCE(${updates.is_public ?? null}, is_public),
+        tags = COALESCE(${updates.tags ? JSON.stringify(updates.tags) : null}, tags),
+        updated_at = NOW()
+      WHERE id = ${collectionId}
+      RETURNING id;
+    `;
+    
+    if (rows.length === 0) {
+      throw new Error('Collection not found');
+    }
+  } catch (error) {
+    console.error("Database error: Failed to update collection:", error);
+    throw new Error("Failed to update collection in database.");
   }
 }
 

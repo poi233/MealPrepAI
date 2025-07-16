@@ -11,6 +11,7 @@ import {
   updateFavoriteTagsInDb,
   deleteFavoriteFromDb,
   saveCollectionToDb,
+  updateCollectionInDb,
   getCollectionsByUserIdFromDb,
   getCollectionMealsFromDb,
   addMealToCollectionInDb,
@@ -339,6 +340,28 @@ export class FavoritesService {
     } catch (error) {
       console.error('Error creating collection:', error);
       throw new Error('Failed to create collection');
+    }
+  }
+
+  async updateCollection(
+    collectionId: string,
+    userId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+      tags?: string[];
+    }
+  ): Promise<void> {
+    try {
+      await updateCollectionInDb(collectionId, updates);
+      
+      // Invalidate cache
+      invalidateCache(`collections:${userId}`);
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      throw new Error('Failed to update collection');
     }
   }
 

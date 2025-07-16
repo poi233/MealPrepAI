@@ -37,6 +37,7 @@ interface UseFavoritesReturn {
   
   // Collection management
   createCollection: (name: string, description?: string, color?: string, icon?: string, tags?: string[]) => Promise<void>;
+  updateCollection: (collectionId: string, updates: { name?: string; description?: string; color?: string; icon?: string; tags?: string[]; }) => Promise<void>;
   deleteCollection: (collectionId: string) => Promise<void>;
   addToCollection: (favoriteId: string, collectionId: string) => Promise<void>;
   removeFromCollection: (favoriteId: string, collectionId: string) => Promise<void>;
@@ -277,6 +278,39 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     }
   }, [userId, toast]);
 
+  const updateCollection = useCallback(async (
+    collectionId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+      tags?: string[];
+    }
+  ) => {
+    setError(null);
+    
+    try {
+      await favoritesService.updateCollection(collectionId, userId, updates);
+      
+      const updatedCollections = await favoritesService.getCollections(userId);
+      setCollections(updatedCollections);
+      
+      toast({
+        title: "收藏夹已更新",
+        description: `收藏夹 "${updates.name || '未命名'}" 更新成功`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update collection';
+      setError(errorMessage);
+      toast({
+        title: "更新失败",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [userId, toast]);
+
   const deleteCollection = useCallback(async (collectionId: string) => {
     setError(null);
     
@@ -505,6 +539,7 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     
     // Collection management
     createCollection,
+    updateCollection,
     deleteCollection,
     addToCollection,
     removeFromCollection,

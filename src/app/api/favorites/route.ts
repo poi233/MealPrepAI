@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFavoritesByUserIdFromDb, saveFavoriteToDb, deleteFavoriteFromDb } from '@/lib/db';
+import { getFavoritesByUserIdFromDb, saveFavoriteToDb, deleteFavoriteFromDb } from '@/lib/favorites-db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       meal_type: additionalData?.mealType || 'dinner',
       ingredients: meal.ingredients,
       cooking_time: 30, // Default cooking time
-      difficulty: 'medium',
+      difficulty: 'medium' as const,
       rating: additionalData?.rating || 3,
       tags: additionalData?.tags || [],
       nutrition_info: {},

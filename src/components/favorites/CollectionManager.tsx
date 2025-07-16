@@ -39,6 +39,7 @@ export function CollectionManager({
     isLoading, 
     error,
     createCollection,
+    updateCollection,
     deleteCollection,
     addToCollection,
     removeFromCollection,
@@ -85,6 +86,31 @@ export function CollectionManager({
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error('Failed to create collection:', error);
+    }
+  };
+
+  // Handle collection update
+  const handleUpdateCollection = async (data: {
+    name: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+    tags?: string[];
+  }) => {
+    if (!selectedCollection) return;
+    
+    try {
+      await updateCollection(selectedCollection.id, {
+        name: data.name,
+        description: data.description,
+        color: data.color,
+        icon: data.icon,
+        tags: data.tags
+      });
+      setIsEditDialogOpen(false);
+      setSelectedCollection(null);
+    } catch (error) {
+      console.error('Failed to update collection:', error);
     }
   };
 
@@ -289,7 +315,7 @@ export function CollectionManager({
           {selectedCollection && (
             <CollectionForm
               initialData={selectedCollection}
-              onSubmit={handleCreateCollection} // TODO: Implement update functionality
+              onSubmit={handleUpdateCollection}
               onCancel={() => setIsEditDialogOpen(false)}
               isEditing
             />

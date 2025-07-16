@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { seedFavoritesData } from '@/lib/db';
+import { seedFavoritesData } from '@/lib/favorites-db';
 
 export async function POST() {
   try {
