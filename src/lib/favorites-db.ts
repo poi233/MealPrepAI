@@ -80,6 +80,8 @@ async function ensureFavoritesTablesExist(): Promise<void> {
 export async function saveFavoriteToDb(favorite: Omit<FavoriteMealRecord, 'id' | 'created_at' | 'last_used'>): Promise<string> {
   await ensureFavoritesTablesExist();
   try {
+    console.log("Attempting to save favorite:", JSON.stringify(favorite, null, 2));
+    
     const { rows } = await sql`
       INSERT INTO favorites (
         user_id, meal_id, name, description, image_url, cuisine, meal_type,
@@ -112,9 +114,12 @@ export async function saveFavoriteToDb(favorite: Omit<FavoriteMealRecord, 'id' |
         last_used = NOW()
       RETURNING id;
     `;
+    
+    console.log("Successfully saved favorite with ID:", rows[0].id);
     return rows[0].id;
   } catch (error) {
     console.error("Database error: Failed to save favorite:", error);
+    console.error("Error details:", error);
     throw new Error("Failed to save favorite to database.");
   }
 }

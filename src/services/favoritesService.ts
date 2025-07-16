@@ -85,27 +85,34 @@ export class FavoritesService {
     try {
       const mealId = crypto.randomUUID();
       
+      // Ensure required fields are not undefined
+      const safeMeal = {
+        recipeName: meal.recipeName || 'Untitled Recipe',
+        ingredients: meal.ingredients || [],
+        instructions: meal.instructions || 'No instructions provided'
+      };
+      
       const favoriteData = {
         user_id: userId,
         meal_id: mealId,
-        name: meal.recipeName,
-        description: `Favorite recipe: ${meal.recipeName}`,
+        name: safeMeal.recipeName,
+        description: `Favorite recipe: ${safeMeal.recipeName}`,
         image_url: additionalData?.imageUrl,
         cuisine: additionalData?.cuisine || 'Unknown',
         meal_type: additionalData?.mealType || 'dinner',
-        ingredients: meal.ingredients,
-        cooking_time: this.estimateCookingTime(meal.instructions),
-        difficulty: this.estimateDifficulty(meal.instructions, meal.ingredients.length),
+        ingredients: safeMeal.ingredients,
+        cooking_time: this.estimateCookingTime(safeMeal.instructions),
+        difficulty: this.estimateDifficulty(safeMeal.instructions, safeMeal.ingredients.length),
         rating: additionalData?.rating || 3,
         tags: additionalData?.tags || [],
-        nutrition_info: this.estimateNutrition(meal.ingredients),
+        nutrition_info: this.estimateNutrition(safeMeal.ingredients),
         recipe_data: {
-          recipeName: meal.recipeName,
-          ingredients: meal.ingredients,
-          instructions: meal.instructions,
+          recipeName: safeMeal.recipeName,
+          ingredients: safeMeal.ingredients,
+          instructions: safeMeal.instructions,
           servings: 1,
           prepTime: 10,
-          cookTime: this.estimateCookingTime(meal.instructions)
+          cookTime: this.estimateCookingTime(safeMeal.instructions)
         },
         use_count: 0,
         is_shared: false
