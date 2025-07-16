@@ -92,7 +92,7 @@ export async function saveFavoriteToDb(favorite: Omit<FavoriteMealRecord, 'id' |
         ${favorite.user_id}, ${favorite.meal_id}, ${favorite.name}, ${favorite.description},
         ${favorite.image_url || null}, ${favorite.cuisine}, ${favorite.meal_type},
         ${JSON.stringify(favorite.ingredients)}::jsonb, ${favorite.cooking_time},
-        ${favorite.difficulty}, ${favorite.rating}, ${JSON.stringify(favorite.tags)},
+        ${favorite.difficulty}, ${favorite.rating}, ${favorite.tags || []},
         ${JSON.stringify(favorite.nutrition_info)}::jsonb,
         ${JSON.stringify(favorite.recipe_data)}::jsonb, ${favorite.use_count},
         ${favorite.is_shared}, ${favorite.shared_by || null}
@@ -185,7 +185,7 @@ export async function updateFavoriteTagsInDb(favoriteId: string, tags: string[])
     const result = await sql`
       UPDATE favorites 
       SET 
-        tags = ${JSON.stringify(tags)},
+        tags = ${tags || []},
         last_used = NOW()
       WHERE id = ${favoriteId}
     `;
@@ -224,7 +224,7 @@ export async function saveCollectionToDb(collection: Omit<FavoriteCollectionReco
       )
       VALUES (
         ${collection.user_id}, ${collection.name}, ${collection.description || null},
-        ${collection.color}, ${collection.icon}, ${collection.is_public}, ${JSON.stringify(collection.tags)}
+        ${collection.color}, ${collection.icon}, ${collection.is_public}, ${collection.tags || []}
       )
       RETURNING id;
     `;
@@ -249,7 +249,7 @@ export async function updateCollectionInDb(
         color = COALESCE(${updates.color || null}, color),
         icon = COALESCE(${updates.icon || null}, icon),
         is_public = COALESCE(${updates.is_public ?? null}, is_public),
-        tags = COALESCE(${updates.tags ? JSON.stringify(updates.tags) : null}, tags),
+        tags = COALESCE(${updates.tags || null}, tags),
         updated_at = NOW()
       WHERE id = ${collectionId}
       RETURNING id;
