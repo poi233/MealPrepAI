@@ -43,7 +43,7 @@ export default function DailyMealCard({ dailyPlan, onDeleteMeal, onAddMeal }: Da
         )}
         <Button
           variant="outline"
-          size="xs" 
+          size="sm" 
           onClick={() => onAddMeal(dailyPlan.day, mealTypeKey, mealTypeTitle)} // Pass Chinese title for context
           className="text-primary border-primary hover:bg-primary/10 w-full mt-auto py-1 text-xs h-7 rounded-md px-2" 
         >

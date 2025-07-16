@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import type { FavoriteCollection, FavoriteMeal } from '@/types/favorites.types';
 import { FavoriteCard } from './FavoriteCard';
+import { AddToPlanDialog } from './AddToPlanDialog';
 
 interface CollectionMealsListProps {
   collection: FavoriteCollection;
@@ -34,6 +35,8 @@ export function CollectionMealsList({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedMeals, setSelectedMeals] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [addToPlanDialogOpen, setAddToPlanDialogOpen] = useState(false);
+  const [selectedMealForPlan, setSelectedMealForPlan] = useState<FavoriteMeal | null>(null);
 
   // Filter meals in collection
   const filteredMeals = meals.filter(meal =>
@@ -73,6 +76,11 @@ export function CollectionMealsList({
         ? prev.filter(id => id !== mealId)
         : [...prev, mealId]
     );
+  };
+
+  const handleAddToPlan = (meal: FavoriteMeal) => {
+    setSelectedMealForPlan(meal);
+    setAddToPlanDialogOpen(true);
   };
 
   return (
@@ -257,10 +265,23 @@ export function CollectionMealsList({
                   console.log('Rating change:', favoriteId, rating);
                 }}
                 onDelete={handleRemoveMeal}
+                onAddToPlan={handleAddToPlan}
               />
             </div>
           ))}
         </div>
+      )}
+
+      {/* Add to Plan Dialog */}
+      {selectedMealForPlan && (
+        <AddToPlanDialog
+          isOpen={addToPlanDialogOpen}
+          onClose={() => {
+            setAddToPlanDialogOpen(false);
+            setSelectedMealForPlan(null);
+          }}
+          favoriteMeal={selectedMealForPlan}
+        />
       )}
     </div>
   );

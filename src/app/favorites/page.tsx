@@ -9,6 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { FavoritesGrid, EmptyFavoritesState } from '@/components/favorites/FavoritesGrid';
 import { FavoritesFilters } from '@/components/favorites/FavoritesFilters';
 import { TagManager } from '@/components/favorites/TagManager';
+import { AddToPlanDialog } from '@/components/favorites/AddToPlanDialog';
 import { Button } from '@/components/ui/button';
 import { 
   Dialog, 
@@ -38,6 +39,10 @@ export default function FavoritesPage() {
 
   // State for selected favorites for bulk operations
   const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
+  
+  // State for Add to Plan dialog
+  const [addToPlanDialogOpen, setAddToPlanDialogOpen] = useState(false);
+  const [selectedMealForPlan, setSelectedMealForPlan] = useState<any>(null);
 
   // Local state for filters
   const [filters, setFiltersState] = useState<FavoriteFilters>({
@@ -158,9 +163,8 @@ export default function FavoritesPage() {
   };
 
   const handleAddToPlan = (favorite: any) => {
-    // This would integrate with the meal plan system
-    // For now, just show a toast or navigate to meal plan
-    router.push('/');
+    setSelectedMealForPlan(favorite);
+    setAddToPlanDialogOpen(true);
   };
 
   const handleAddToCollection = (favoriteId: string) => {
@@ -260,6 +264,18 @@ export default function FavoritesPage() {
             onSelectionChange={setSelectedFavorites}
           />
         </div>
+      )}
+
+      {/* Add to Plan Dialog */}
+      {selectedMealForPlan && (
+        <AddToPlanDialog
+          isOpen={addToPlanDialogOpen}
+          onClose={() => {
+            setAddToPlanDialogOpen(false);
+            setSelectedMealForPlan(null);
+          }}
+          favoriteMeal={selectedMealForPlan}
+        />
       )}
     </div>
   );

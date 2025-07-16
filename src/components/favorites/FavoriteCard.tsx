@@ -206,7 +206,7 @@ export function FavoriteCard({
                 <FavoriteButton
                   meal={mealForButton}
                   isFavorite={true}
-                  onToggle={() => onDelete(favorite.id)}
+                  onToggle={async () => onDelete(favorite.id)}
                   size="sm"
                 />
               </div>
@@ -300,7 +300,7 @@ export function FavoriteCard({
         <FavoriteButton
           meal={mealForButton}
           isFavorite={true}
-          onToggle={() => onDelete(favorite.id)}
+          onToggle={async () => onDelete(favorite.id)}
           className="absolute top-3 right-3 z-10 bg-white/80 backdrop-blur-sm hover:bg-white"
         />
         

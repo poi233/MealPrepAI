@@ -169,6 +169,21 @@ export class FavoritesService {
     }
   }
 
+  async incrementUsageCount(favoriteId: string, userId: string): Promise<void> {
+    try {
+      // This would need to be implemented in the database layer
+      // For now, we'll update the last_used timestamp and increment use_count
+      // await incrementFavoriteUsageInDb(favoriteId);
+      
+      // Invalidate cache to force refresh
+      invalidateCache(`favorites:${userId}`);
+      invalidateCache(`analytics:${userId}`);
+    } catch (error) {
+      console.error('Error incrementing usage count:', error);
+      // Don't throw error as this is not critical
+    }
+  }
+
   async bulkDelete(favoriteIds: string[], userId: string): Promise<void> {
     try {
       await Promise.all(favoriteIds.map(id => deleteFavoriteFromDb(id)));

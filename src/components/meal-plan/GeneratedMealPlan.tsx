@@ -43,7 +43,8 @@ import {
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMealPlan, Meal, GenerateWeeklyMealPlanOutput } from "@/ai/flows/generate-weekly-meal-plan";
-import { usePlanList } from '@/contexts/PlanListContext'; 
+import { usePlanList } from '@/contexts/PlanListContext';
+import { QuickAddFavorites } from '@/components/favorites/QuickAddFavorites'; 
 
 type MealTypeKey = keyof Pick<DailyMealPlan, 'breakfast' | 'lunch' | 'dinner'>;
 
@@ -231,7 +232,7 @@ export default function GeneratedMealPlan() {
       toast({
         title: "无法添加食谱",
         description: "缺少计划描述。AI推荐功能可能无法正常工作。",
-        variant: "warning",
+        variant: "destructive",
       });
     }
     setAddRecipeTarget({ day, mealTypeKey, mealTypeTitle });
@@ -399,15 +400,23 @@ export default function GeneratedMealPlan() {
           </div>
 
           {displayedDailyPlans.length > 0 ? (
-            <div className="space-y-3">
-              {displayedDailyPlans.map((dailyPlanItem) => (
-                <DailyMealCard 
-                  key={`${activePlanName}-${dailyPlanItem.day}`} 
-                  dailyPlan={dailyPlanItem} 
-                  onDeleteMeal={handleDeleteMeal}
-                  onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
-                />
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Main meal plan content */}
+              <div className="lg:col-span-3 space-y-3">
+                {displayedDailyPlans.map((dailyPlanItem) => (
+                  <DailyMealCard 
+                    key={`${activePlanName}-${dailyPlanItem.day}`} 
+                    dailyPlan={dailyPlanItem} 
+                    onDeleteMeal={handleDeleteMeal}
+                    onAddMeal={(day, mealTypeKey, mealTypeTitle) => handleAddMealClick(day, mealTypeKey, mealTypeTitle)} 
+                  />
+                ))}
+              </div>
+              
+              {/* Quick Add Favorites Sidebar */}
+              <div className="lg:col-span-1">
+                <QuickAddFavorites maxItems={8} className="sticky top-4" />
+              </div>
             </div>
             ) : (
             <Alert className="mt-4 bg-muted/50">
