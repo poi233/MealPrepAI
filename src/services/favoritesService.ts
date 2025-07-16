@@ -6,15 +6,18 @@
 import {
   saveFavoriteToDb,
   getFavoritesByUserIdFromDb,
+  getFavoritesWithCollectionsFromDb,
   updateFavoriteRatingInDb,
   updateFavoriteTagsInDb,
   deleteFavoriteFromDb,
   saveCollectionToDb,
   getCollectionsByUserIdFromDb,
+  getCollectionMealsFromDb,
   addMealToCollectionInDb,
   removeMealFromCollectionInDb,
+  deleteCollectionFromDb,
   seedFavoritesData
-} from '@/lib/db';
+} from '@/lib/favorites-db';
 import type { 
   FavoriteMeal, 
   FavoriteCollection, 
@@ -126,7 +129,7 @@ export class FavoritesService {
       const cached = getCache<FavoriteMeal[]>(cacheKey);
       if (cached) return cached;
 
-      const favorites = await getFavoritesByUserIdFromDb(userId);
+      const favorites = await getFavoritesWithCollectionsFromDb(userId);
       setCache(cacheKey, favorites);
       return favorites;
     } catch (error) {
@@ -362,6 +365,33 @@ export class FavoritesService {
     } catch (error) {
       console.error('Error removing from collection:', error);
       throw new Error('Failed to remove meal from collection');
+    }
+  }
+
+  async deleteCollection(collectionId: string, userId: string): Promise<void> {
+    try {
+      await deleteCollectionFromDb(collectionId);
+      
+      // Invalidate cache
+      invalidateCache(`collections:${userId}`);
+      invalidateCache(`favorites:${userId}`);
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      throw new Error('Failed to delete collection');
+    }
+  }
+
+  async getCollectionMeals(collectionId: string, userId: string): Promise<FavoriteMeal[]> {
+    try {
+      const [mealIds, favorites] = await Promise.all([
+        getCollectionMealsFromDb(collectionId),
+        this.getFavorites(userId)
+      ]);
+      
+      return favorites.filter(favorite => mealIds.includes(favorite.id));
+    } catch (error) {
+      console.error('Error getting collection meals:', error);
+      throw new Error('Failed to retrieve collection meals');
     }
   }
 

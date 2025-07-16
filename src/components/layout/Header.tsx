@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { UtensilsCrossed, Sparkles, ListFilter, Heart } from 'lucide-react';
+import { UtensilsCrossed, Sparkles, ListFilter, Heart, FolderHeart, Menu, X } from 'lucide-react';
 import GenerateMealPlanDialog from '@/components/meal-plan/GenerateMealPlanDialog';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { usePlanList } from '@/contexts/PlanListContext'; 
@@ -21,6 +21,7 @@ import { normalizeStringInput } from '@/lib/utils';
 
 export default function Header() {
   const [isGeneratePlanDialogOpen, setIsGeneratePlanDialogOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { activePlanName, setActivePlanName, isLoading: isProfileLoading } = useUserProfile();
   const { savedPlanNames, isLoadingPlans, fetchPlanNames } = usePlanList(); 
   const { toast } = useToast();
@@ -47,62 +48,164 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-card border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
-            <UtensilsCrossed size={28} />
-            <span>膳食规划AI</span>
-          </Link>
-          <nav className="flex items-center gap-2 flex-wrap">
-            <Link href="/favorites">
-              <Button 
-                variant="ghost" 
-                className="text-primary hover:bg-primary/10 h-9 text-xs sm:text-sm"
-              >
-                <Heart className="mr-1.5 h-4 w-4" />
-                我的收藏
-              </Button>
+      <header className="bg-gradient-to-r from-teal-50 to-blue-50 border-b border-teal-200 shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-3 text-2xl md:text-3xl font-bold text-teal-700 hover:text-teal-800 transition-colors">
+              <div className="p-2 bg-teal-600 rounded-xl text-white">
+                <UtensilsCrossed size={32} />
+              </div>
+              <span className="hidden sm:block">膳食规划AI</span>
             </Link>
-            {(savedPlanNames.length > 0 || isLoadingPlans || isProfileLoading) && (
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center gap-3">
+              <Link href="/favorites">
+                <Button 
+                  variant="ghost" 
+                  className="text-teal-700 hover:bg-teal-100 h-10 px-4 font-medium"
+                >
+                  <Heart className="mr-2 h-4 w-4" />
+                  我的收藏
+                </Button>
+              </Link>
+              
+              <Link href="/collections">
+                <Button 
+                  variant="ghost" 
+                  className="text-teal-700 hover:bg-teal-100 h-10 px-4 font-medium"
+                >
+                  <FolderHeart className="mr-2 h-4 w-4" />
+                  收藏夹管理
+                </Button>
+              </Link>
+
+              {(savedPlanNames.length > 0 || isLoadingPlans || isProfileLoading) && (
                 <Select
                   value={selectValue}
                   onValueChange={handlePlanChange}
                   disabled={isLoadingPlans || isProfileLoading}
                 >
-                  <SelectTrigger className="w-auto min-w-[180px] max-w-[250px] h-9 text-xs sm:text-sm border-primary/50 text-primary focus:ring-primary/50">
-                     <ListFilter className="mr-1.5 h-3.5 w-3.5 opacity-80" />
+                  <SelectTrigger className="w-auto min-w-[200px] max-w-[280px] h-10 border-teal-300 text-teal-700 focus:ring-teal-500 bg-white/80">
+                    <ListFilter className="mr-2 h-4 w-4" />
                     <SelectValue placeholder="切换当前计划..." />
                   </SelectTrigger>
                   <SelectContent>
                     {isLoadingPlans || isProfileLoading ? (
-                      <SelectItem value="loading" disabled className="text-xs sm:text-sm">加载计划中...</SelectItem>
+                      <SelectItem value="loading" disabled>加载计划中...</SelectItem>
                     ) : (
                       <>
                         {savedPlanNames.length === 0 && !activePlanName && (
-                           <SelectItem value="no-plans" disabled className="text-xs sm:text-sm">暂无已保存的计划。</SelectItem>
+                          <SelectItem value="no-plans" disabled>暂无已保存的计划。</SelectItem>
                         )}
                         {savedPlanNames.map((name) => (
-                          <SelectItem key={name} value={name} className="text-xs sm:text-sm">
-                            {name.length > 30 ? `${name.substring(0, 27)}...` : name}
+                          <SelectItem key={name} value={name}>
+                            {name.length > 35 ? `${name.substring(0, 32)}...` : name}
                           </SelectItem>
                         ))}
                         {activePlanName && savedPlanNames.length > 0 && (
-                            <SelectItem value="---clear---" className="text-xs sm:text-sm text-destructive/80">清除当前计划</SelectItem>
+                          <SelectItem value="---clear---" className="text-red-600">清除当前计划</SelectItem>
                         )}
                       </>
                     )}
                   </SelectContent>
                 </Select>
-            )}
-             <Button 
-              variant="outline" 
-              onClick={() => setIsGeneratePlanDialogOpen(true)}
-              className="border-primary text-primary hover:bg-primary/10 h-9 text-xs sm:text-sm"
+              )}
+
+              <Button 
+                onClick={() => setIsGeneratePlanDialogOpen(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white h-10 px-6 font-medium shadow-md"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                生成膳食计划
+              </Button>
+            </nav>
+
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden text-teal-700 hover:bg-teal-100"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <Sparkles className="mr-1.5 h-4 w-4" />
-              生成膳食计划
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </Button>
-          </nav>
+          </div>
+
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="lg:hidden mt-4 pt-4 border-t border-teal-200">
+              <nav className="flex flex-col gap-2">
+                <Link href="/favorites" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-teal-700 hover:bg-teal-100 h-12"
+                  >
+                    <Heart className="mr-3 h-5 w-5" />
+                    我的收藏
+                  </Button>
+                </Link>
+                
+                <Link href="/collections" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-teal-700 hover:bg-teal-100 h-12"
+                  >
+                    <FolderHeart className="mr-3 h-5 w-5" />
+                    收藏夹管理
+                  </Button>
+                </Link>
+
+                {(savedPlanNames.length > 0 || isLoadingPlans || isProfileLoading) && (
+                  <div className="px-3 py-2">
+                    <Select
+                      value={selectValue}
+                      onValueChange={handlePlanChange}
+                      disabled={isLoadingPlans || isProfileLoading}
+                    >
+                      <SelectTrigger className="w-full h-12 border-teal-300 text-teal-700 focus:ring-teal-500 bg-white/80">
+                        <ListFilter className="mr-2 h-4 w-4" />
+                        <SelectValue placeholder="切换当前计划..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingPlans || isProfileLoading ? (
+                          <SelectItem value="loading" disabled>加载计划中...</SelectItem>
+                        ) : (
+                          <>
+                            {savedPlanNames.length === 0 && !activePlanName && (
+                              <SelectItem value="no-plans" disabled>暂无已保存的计划。</SelectItem>
+                            )}
+                            {savedPlanNames.map((name) => (
+                              <SelectItem key={name} value={name}>
+                                {name.length > 25 ? `${name.substring(0, 22)}...` : name}
+                              </SelectItem>
+                            ))}
+                            {activePlanName && savedPlanNames.length > 0 && (
+                              <SelectItem value="---clear---" className="text-red-600">清除当前计划</SelectItem>
+                            )}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="px-3 py-2">
+                  <Button 
+                    onClick={() => {
+                      setIsGeneratePlanDialogOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white h-12 font-medium shadow-md"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    生成膳食计划
+                  </Button>
+                </div>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
       <GenerateMealPlanDialog

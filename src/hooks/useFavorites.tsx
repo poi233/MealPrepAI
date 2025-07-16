@@ -37,6 +37,7 @@ interface UseFavoritesReturn {
   
   // Collection management
   createCollection: (name: string, description?: string, color?: string, icon?: string, tags?: string[]) => Promise<void>;
+  deleteCollection: (collectionId: string) => Promise<void>;
   addToCollection: (favoriteId: string, collectionId: string) => Promise<void>;
   removeFromCollection: (favoriteId: string, collectionId: string) => Promise<void>;
   
@@ -276,6 +277,35 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     }
   }, [userId, toast]);
 
+  const deleteCollection = useCallback(async (collectionId: string) => {
+    setError(null);
+    
+    try {
+      await favoritesService.deleteCollection(collectionId, userId);
+      
+      // Refresh data
+      const [updatedFavorites, updatedCollections] = await Promise.all([
+        favoritesService.getFavorites(userId),
+        favoritesService.getCollections(userId)
+      ]);
+      setFavorites(updatedFavorites);
+      setCollections(updatedCollections);
+      
+      toast({
+        title: "收藏夹已删除",
+        description: "收藏夹已成功删除",
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete collection';
+      setError(errorMessage);
+      toast({
+        title: "删除失败",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [userId, toast]);
+
   const addToCollection = useCallback(async (favoriteId: string, collectionId: string) => {
     setError(null);
     
@@ -475,6 +505,7 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     
     // Collection management
     createCollection,
+    deleteCollection,
     addToCollection,
     removeFromCollection,
     
@@ -503,6 +534,7 @@ export function useFavorites(userId: string = '550e8400-e29b-41d4-a716-446655440
     rateMeal,
     deleteFavorite,
     createCollection,
+    deleteCollection,
     addToCollection,
     removeFromCollection,
     bulkDelete,
