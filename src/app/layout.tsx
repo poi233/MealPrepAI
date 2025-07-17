@@ -6,7 +6,8 @@ import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
 import { MealPlanProvider } from '@/contexts/MealPlanContext';
-import { PlanListProvider } from '@/contexts/PlanListContext'; 
+import { PlanListProvider } from '@/contexts/PlanListContext';
+import { Providers } from '@/contexts/Providers'; 
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -27,17 +28,19 @@ export default function RootLayout({
     <html lang="zh-CN" className={openSans.variable}>
       {/* Next.js automatically manages the <head> tag and its contents. */}
       <body className="antialiased font-sans">
-        <UserProfileProvider>
-          <PlanListProvider> 
-            <MealPlanProvider>
-              <Header />
-              <main className="container mx-auto px-4 py-8">
-                {children}
-              </main>
-              <Toaster />
-            </MealPlanProvider>
-          </PlanListProvider> 
-        </UserProfileProvider>
+        <Providers>
+          <UserProfileProvider>
+            <PlanListProvider> 
+              <MealPlanProvider>
+                <Header />
+                <main className="container mx-auto px-4 py-8">
+                  {children}
+                </main>
+                <Toaster />
+              </MealPlanProvider>
+            </PlanListProvider> 
+          </UserProfileProvider>
+        </Providers>
       </body>
     </html>
   );
