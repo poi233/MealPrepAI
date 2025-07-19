@@ -1,7 +1,8 @@
-import { NextRequest } from 'next/server';
 import { withAuth, ApiErrors } from '@/lib/api-auth';
 
-export const GET = withAuth(async (user: any) => {
+import type { User } from '@/types/database.types';
+
+export const GET = withAuth(async (user: User) => {
   try {
     return Response.json(
       { 

@@ -5,14 +5,18 @@ MealPrepAI is a Next.js application designed to help users generate personalized
 ## Features
 
 - **AI-Powered Meal Plan Generation**: Leverages Genkit and Google's Gemini models to create customized 7-day meal plans.
-- **Personalized Dietary Preferences**: Users can specify their dietary needs (e.g., vegetarian, low-carb, allergies) which are saved to their profile.
-- **Recipe Details Generation**: AI can automatically fill in ingredients and instructions for a given recipe name.
+- **Normalized Meal Plan System**: Clean, efficient meal plan management with proper database relationships.
+- **Recipe Management**: Browse and select from a curated collection of sample recipes.
+- **Simple Favorites System**: Mark recipes as favorites for quick access and meal planning.
 - **Interactive Meal Plan Management**:
-    - View weekly meal plans on a day-by-day basis.
-    - Manually add new recipes to any meal slot (breakfast, lunch, dinner).
-    - Delete individual recipes from the meal plan.
-- **Database Integration**: Saves and retrieves meal plans and user preferences using Vercel Postgres (Neon).
-- **Responsive Design**: User interface built with ShadCN UI and Tailwind CSS for a modern and responsive experience across devices.
+    - View weekly meal plans in a responsive grid layout.
+    - Manually add recipes to any meal slot (breakfast, lunch, dinner, snack).
+    - Remove recipes from meal plan slots.
+    - Create and manage multiple meal plans.
+- **Personalized Dietary Preferences**: Users can specify their dietary needs which influence AI meal generation.
+- **Recipe Details Generation**: AI can automatically fill in ingredients and instructions for recipe names.
+- **Database Integration**: Normalized database schema with proper relationships for meal plans, recipes, and user favorites.
+- **Responsive Design**: Modern UI built with ShadCN UI and Tailwind CSS, optimized for all devices.
 - **Profile Management**: Users can save and update their dietary preferences.
 
 ## Technologies Used
@@ -97,30 +101,49 @@ The Genkit configuration can be found in `src/ai/genkit.ts`. The development ser
 
 ## Database
 
-Meal plans and user dietary preferences are stored in a Vercel Postgres database, which is powered by Neon. The database schema is managed automatically by the application through the `src/lib/db.ts` file, which includes functions to create the necessary tables if they don't exist and to perform CRUD (Create, Read, Update, Delete) operations on meal plans.
+The application uses a normalized database schema with Vercel Postgres (powered by Neon) to store:
+
+- **Users**: User accounts and dietary preferences
+- **Recipes**: Sample recipes with ingredients, instructions, and metadata
+- **Meal Plans**: Weekly meal plans with proper relationships to recipes
+- **User Favorites**: Simple favorites system linking users to their preferred recipes
+
+Database operations are handled through specialized service files:
+- `src/lib/meal-plans-db.ts`: Normalized meal plan operations
+- `src/lib/services/favorites-service.ts`: Simple favorites management
+- `src/lib/sample-recipes.ts`: Recipe data and operations
+
+The database schema is automatically created and managed by the application, with proper foreign key relationships and indexes for optimal performance.
 
 ## Project Structure
 
 -   `src/app/`: Contains the Next.js App Router pages and layouts.
--   `src/components/`: Reusable UI components.
-    -   `src/components/ui/`: ShadCN UI components.
-    -   `src/components/meal-plan/`: Components specific to meal planning features.
-    -   `src/components/profile/`: Components for user profile management.
-    -   `src/components/layout/`: Layout components like the Header.
--   `src/ai/`: Genkit related files.
-    -   `src/ai/flows/`: Definitions for AI flows (e.g., meal plan generation).
+-   `src/components/`: Reusable UI components organized by feature.
+    -   `src/components/ui/`: ShadCN UI base components.
+    -   `src/components/meal-plan/`: Meal planning components with organized subdirectories:
+        -   `cards/`: Meal card components (DailyMealCard, MealItemCard)
+        -   `dialogs/`: Dialog components (RecipeSelection, AddRecipe, etc.)
+    -   `src/components/profile/`: User profile management components.
+    -   `src/components/layout/`: Layout components like Header and navigation.
+-   `src/ai/`: Genkit AI integration files.
+    -   `src/ai/flows/`: AI flow definitions for meal plan and recipe generation.
     -   `src/ai/genkit.ts`: Genkit initialization and configuration.
     -   `src/ai/dev.ts`: Entry point for the Genkit development server.
 -   `src/contexts/`: React Context providers for global state management.
--   `src/hooks/`: Custom React hooks.
--   `src/lib/`: Utility functions and database interaction logic.
-    -   `src/lib/db.ts`: Database connection and query functions.
+    -   `NormalizedMealPlanContext.tsx`: Meal plan state management.
+    -   `FavoritesContext.tsx`: Simple favorites system state.
+    -   `Providers.tsx`: Combined context providers.
+-   `src/hooks/`: Custom React hooks for reusable logic.
+-   `src/lib/`: Utility functions and database operations.
+    -   `src/lib/meal-plans-db.ts`: Normalized meal plan database operations.
+    -   `src/lib/services/`: Service layer for business logic.
+        -   `favorites-service.ts`: Simple favorites management.
+    -   `src/lib/sample-recipes.ts`: Recipe data and operations.
     -   `src/lib/utils.ts`: General utility functions.
+-   `src/types/`: TypeScript type definitions.
+    -   `database.types.ts`: Database entity types and interfaces.
 -   `public/`: Static assets.
--   `package.json`: Project dependencies and scripts.
--   `next.config.ts`: Next.js configuration.
--   `tailwind.config.ts`: Tailwind CSS configuration.
--   `tsconfig.json`: TypeScript configuration.
+-   Configuration files: `package.json`, `next.config.ts`, `tailwind.config.ts`, `tsconfig.json`.
 
 ## Contributing
 

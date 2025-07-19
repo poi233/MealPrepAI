@@ -16,7 +16,7 @@ interface UseProtectedRouteOptions {
  */
 export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
   const { 
-    redirectTo = '/login', 
+    redirectTo = '/auth/login', 
     requireAuth = true,
     onUnauthorized 
   } = options;

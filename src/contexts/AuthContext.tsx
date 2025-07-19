@@ -21,12 +21,22 @@ interface RegisterData {
   email: string;
   password: string;
   displayName?: string;
-  dietaryPreferences?: any;
+  dietaryPreferences?: {
+    dietType?: 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean';
+    allergies?: string[];
+    dislikes?: string[];
+    calorieTarget?: number;
+  };
 }
 
 interface ProfileUpdates {
   displayName?: string;
-  dietaryPreferences?: any;
+  dietaryPreferences?: {
+    dietType?: 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean';
+    allergies?: string[];
+    dislikes?: string[];
+    calorieTarget?: number;
+  };
   email?: string;
 }
 
@@ -122,12 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setUser(null);
       // Redirect to login page
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear user state even if API call fails
       setUser(null);
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
     }
   };
 
@@ -226,7 +236,7 @@ export function withAuth<P extends object>(Component: React.ComponentType<P>) {
             <p className="text-gray-600 mb-4">{sessionError}</p>
             <div className="flex gap-2 justify-center">
               <a 
-                href="/login" 
+                href="/auth/login" 
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
               >
                 Sign In Again
@@ -250,7 +260,7 @@ export function withAuth<P extends object>(Component: React.ComponentType<P>) {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
             <p className="text-gray-600 mb-4">You need to be logged in to access this page.</p>
             <a 
-              href="/login" 
+              href="/auth/login" 
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
             >
               Sign In

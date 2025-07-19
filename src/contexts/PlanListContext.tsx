@@ -3,7 +3,6 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { getAllSavedMealPlanNamesAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
 interface PlanListContextType {
@@ -21,18 +20,24 @@ export function PlanListProvider({ children }: { children: React.ReactNode }) {
 
   const fetchPlanNames = useCallback(async () => {
     setIsLoadingPlans(true);
-    const result = await getAllSavedMealPlanNamesAction();
-    if ("error" in result) {
+    try {
+      // For now, we'll return an empty array since we're transitioning to the normalized system
+      // The normalized meal plan context will handle loading meal plans
+      setSavedPlanNames([]);
+      
+      // TODO: Implement fetching meal plan names from the normalized system
+      // This would involve calling getMealPlansForUser from the normalized meal plan context
+    } catch (error) {
+      console.error("Error fetching plan names:", error);
       toast({
         title: "加载已保存计划列表错误",
-        description: result.error,
+        description: "无法加载计划列表，请稍后再试。",
         variant: "destructive",
       });
       setSavedPlanNames([]);
-    } else {
-      setSavedPlanNames(result);
+    } finally {
+      setIsLoadingPlans(false);
     }
-    setIsLoadingPlans(false);
   }, [toast]);
 
   useEffect(() => {

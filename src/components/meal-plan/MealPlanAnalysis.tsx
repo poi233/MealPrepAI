@@ -7,16 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Brain, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeMealPlanAction, getMealPlanAnalysisAction } from '@/app/actions';
-import type { AnalyzeMealPlanActionInput } from '@/app/actions';
-import type { MealPlanData } from '@/contexts/MealPlanContext';
+// Legacy imports removed - analysis functionality will be reimplemented in normalized system
+import type { MealPlan } from '@/types/database.types';
 import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert'; 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface MealPlanAnalysisProps {
-  currentMealPlan: MealPlanData | null;
+  currentMealPlan: MealPlan | null;
 }
 
 export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisProps) {
@@ -35,24 +34,8 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
       setAnalysisText(null);
       return;
     }
-    setIsFetching(true);
-    setFetchError(null);
-    try {
-      const result = await getMealPlanAnalysisAction(planName);
-      if (result && "analysisText" in result) {
-        setAnalysisText(result.analysisText);
-      } else if (result && "error" in result) {
-        setFetchError(result.error);
-        setAnalysisText(null);
-      } else { 
-        setAnalysisText(null);
-      }
-    } catch (e: any) {
-      setFetchError(e.message || '获取分析时发生未知错误。');
-      setAnalysisText(null);
-    } finally {
-      setIsFetching(false);
-    }
+    // Analysis functionality is being updated for the normalized system
+    setAnalysisText(null);
   }, []);
 
   useEffect(() => {
@@ -64,7 +47,7 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
   }, [activePlanName, fetchAnalysis]);
 
   const handleAnalyzePlan = async () => {
-    if (!currentMealPlan || !currentMealPlan.weeklyMealPlan || !currentMealPlan.planDescription) {
+    if (!currentMealPlan || !currentMealPlan.items || !currentMealPlan.description) {
       toast({
         title: '无法分析',
         description: '当前没有有效的膳食计划或计划描述可供分析。',
@@ -81,45 +64,15 @@ export default function MealPlanAnalysis({ currentMealPlan }: MealPlanAnalysisPr
         return;
     }
 
-    setIsGenerating(true);
-    setGenerationError(null);
-    
-    const input: AnalyzeMealPlanActionInput = {
-      planName: activePlanName,
-      planDescription: currentMealPlan.planDescription,
-      weeklyMealPlan: currentMealPlan.weeklyMealPlan,
-    };
-
-    try {
-      const result = await analyzeMealPlanAction(input);
-      if ('error' in result) {
-        setGenerationError(result.error);
-        toast({
-          title: '分析错误',
-          description: result.error,
-          variant: 'destructive',
-        });
-      } else {
-        setAnalysisText(result.analysisText);
-        toast({
-          title: '分析完成并已保存',
-          description: 'AI已提供膳食计划分析并保存到数据库。',
-        });
-      }
-    } catch (e: any) {
-      const errorMessage = e.message || '分析过程中发生未知错误。';
-      setGenerationError(errorMessage);
-      toast({
-        title: '分析失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+    // For now, show a message that this feature is being updated
+    toast({
+      title: '功能暂不可用',
+      description: '膳食计划分析功能正在更新中，请稍后再试。',
+      variant: 'default',
+    });
   };
 
-  const canAnalyze = !!currentMealPlan && !!currentMealPlan.weeklyMealPlan && currentMealPlan.weeklyMealPlan.length > 0 && !!currentMealPlan.planDescription && !!activePlanName;
+  const canAnalyze = !!currentMealPlan && !!currentMealPlan.items && currentMealPlan.items.length > 0 && !!currentMealPlan.description && !!activePlanName;
 
   return (
     <Card className="mt-4 shadow-lg">

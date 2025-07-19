@@ -7,16 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2, ListChecks, ClipboardCopy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { generateShoppingListAction, getShoppingListForPlanAction } from '@/app/actions';
-import type { GenerateShoppingListActionInput } from '@/app/actions';
-import type { MealPlanData } from '@/contexts/MealPlanContext';
+// Legacy imports removed - shopping list functionality will be reimplemented in normalized system
+import type { MealPlan } from '@/types/database.types';
 import { Alert, AlertTitle, AlertDescription as AlertDesc } from '@/components/ui/alert';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface ShoppingListGeneratorProps {
-  currentMealPlan: MealPlanData | null;
+  currentMealPlan: MealPlan | null;
 }
 
 export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListGeneratorProps) {
@@ -35,25 +34,8 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
       setFetchedShoppingListText(null); 
       return;
     }
-    setIsFetchingList(true);
-    setFetchListError(null);
-    try {
-      const result = await getShoppingListForPlanAction(planName);
-      if (result && "shoppingListText" in result) {
-        setFetchedShoppingListText(result.shoppingListText);
-      } else if (result && "error" in result) {
-        setFetchListError(result.error);
-        console.warn(`获取购物清单时出错: ${result.error}`);
-        setFetchedShoppingListText(null);
-      } else {
-        setFetchedShoppingListText(null); 
-      }
-    } catch (e: any) {
-      setFetchListError(e.message || '获取购物清单时发生未知错误。');
-      setFetchedShoppingListText(null);
-    } finally {
-      setIsFetchingList(false);
-    }
+    // Shopping list functionality is being updated for the normalized system
+    setFetchedShoppingListText(null);
   }, []);
 
   useEffect(() => {
@@ -65,7 +47,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
   }, [activePlanName, currentMealPlan, fetchShoppingList]);
 
   const handleGenerateShoppingList = async () => {
-    if (!currentMealPlan || !currentMealPlan.weeklyMealPlan || currentMealPlan.weeklyMealPlan.length === 0) {
+    if (!currentMealPlan || !currentMealPlan.items || currentMealPlan.items.length === 0) {
       toast({
         title: '无法生成购物清单',
         description: '当前没有有效的膳食计划可供生成购物清单。',
@@ -82,44 +64,12 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
         return;
     }
 
-    setIsGeneratingList(true);
-    setGenerationError(null);
-    
-    const input: GenerateShoppingListActionInput = {
-      planName: activePlanName,
-      weeklyMealPlan: currentMealPlan.weeklyMealPlan,
-      planDescription: currentMealPlan.planDescription,
-    };
-
-    try {
-      const result = await generateShoppingListAction(input);
-      if ('error' in result) {
-        setGenerationError(result.error);
-        toast({
-          title: '生成购物清单错误',
-          description: result.error,
-          variant: 'destructive',
-        });
-        setFetchedShoppingListText(null); 
-      } else {
-        setFetchedShoppingListText(result.shoppingListText);
-        toast({
-          title: '购物清单已生成并保存',
-          description: 'AI已为您创建购物清单并将其保存到数据库。',
-        });
-      }
-    } catch (e: any) {
-      const errorMessage = e.message || '生成购物清单过程中发生未知错误。';
-      setGenerationError(errorMessage);
-      setFetchedShoppingListText(null);
-      toast({
-        title: '生成购物清单失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGeneratingList(false);
-    }
+    // For now, show a message that this feature is being updated
+    toast({
+      title: '功能暂不可用',
+      description: '购物清单生成功能正在更新中，请稍后再试。',
+      variant: 'default',
+    });
   };
 
   const handleCopyToClipboard = async () => {
@@ -136,7 +86,7 @@ export default function ShoppingListGenerator({ currentMealPlan }: ShoppingListG
     }
   };
 
-  const canGenerate = !!currentMealPlan && !!currentMealPlan.weeklyMealPlan && currentMealPlan.weeklyMealPlan.length > 0 && !!activePlanName;
+  const canGenerate = !!currentMealPlan && !!currentMealPlan.items && currentMealPlan.items.length > 0 && !!activePlanName;
 
   return (
     <Card className="mt-4 shadow-lg">

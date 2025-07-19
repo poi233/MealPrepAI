@@ -15,7 +15,7 @@ export interface User {
 
 export interface DietaryPreferences {
   allergies?: string[];
-  dietType?: 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean';
+  dietType?: string;
   dislikes?: string[];
   calorieTarget?: number;
 }
@@ -29,11 +29,10 @@ export interface Recipe {
   instructions: string;
   nutritionInfo: NutritionInfo;
   cuisine?: string;
-  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   prepTime: number;
   cookTime: number;
   totalTime: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: string;
   avgRating: number;
   ratingCount: number;
   imageUrl?: string;
@@ -76,7 +75,7 @@ export interface MealPlanItem {
   recipeId: string;
   recipe: Recipe;
   dayOfWeek: number;
-  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  mealType: string;
   addedAt: Date;
 }
 
@@ -123,11 +122,10 @@ export interface RecipeRecord {
   instructions: string;
   nutrition_info: NutritionInfo;
   cuisine?: string;
-  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   prep_time: number;
   cook_time: number;
   total_time: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: string;
   avg_rating: number;
   rating_count: number;
   image_url?: string;
@@ -151,7 +149,7 @@ export interface MealPlanItemRecord {
   meal_plan_id: string;
   recipe_id: string;
   day_of_week: number;
-  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  meal_type: string;
   added_at: Date;
 }
 
@@ -185,7 +183,7 @@ export interface CollectionRecipeRecord {
 export interface DatabaseError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 export const ErrorCodes = {
@@ -203,13 +201,13 @@ export const ErrorCodes = {
 export interface RecipeSearchFilters {
   searchQuery?: string;
   cuisine?: string;
-  mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-  difficulty?: 'easy' | 'medium' | 'hard';
+  mealType?: string;
+  difficulty?: string;
   maxPrepTime?: number;
   maxCookTime?: number;
   minRating?: number;
   tags?: string[];
-  sortBy?: 'rating' | 'created_at' | 'name' | 'prep_time';
+  sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
@@ -219,7 +217,7 @@ export interface MealPlanFilters {
   userId: string;
   isActive?: boolean;
   weekStartDate?: Date;
-  sortBy?: 'created_at' | 'name' | 'week_start_date';
+  sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;

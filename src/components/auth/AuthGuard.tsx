@@ -23,7 +23,7 @@ export function AuthGuard({
   children, 
   fallback,
   requireAuth = true,
-  redirectTo = '/login',
+  redirectTo = '/auth/login',
   showError = true
 }: AuthGuardProps) {
   const { clearSessionError } = useAuth();
@@ -63,7 +63,7 @@ export function AuthGuard({
           </Alert>
           <div className="mt-4 flex gap-2">
             <Button 
-              onClick={() => window.location.href = '/login'}
+              onClick={() => window.location.href = '/auth/login'}
               className="flex-1"
             >
               Sign In Again

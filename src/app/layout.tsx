@@ -1,11 +1,9 @@
-
 import type { Metadata } from 'next';
 import { Open_Sans } from 'next/font/google';
-import './globals.css';
+import '@/components/ui/globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
-import { MealPlanProvider } from '@/contexts/MealPlanContext';
 import { PlanListProvider } from '@/contexts/PlanListContext';
 import { Providers } from '@/contexts/Providers'; 
 
@@ -26,18 +24,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className={openSans.variable}>
-      {/* Next.js automatically manages the <head> tag and its contents. */}
       <body className="antialiased font-sans">
         <Providers>
           <UserProfileProvider>
             <PlanListProvider> 
-              <MealPlanProvider>
-                <Header />
-                <main className="container mx-auto px-4 py-8">
-                  {children}
-                </main>
-                <Toaster />
-              </MealPlanProvider>
+              <Header />
+              <main className="container mx-auto px-4 py-8">
+                {children}
+              </main>
+              <Toaster />
             </PlanListProvider> 
           </UserProfileProvider>
         </Providers>
@@ -45,4 +40,3 @@ export default function RootLayout({
     </html>
   );
 }
-

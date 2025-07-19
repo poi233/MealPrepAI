@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
  * Hook to protect routes that require authentication
  * Redirects to login if user is not authenticated
  */
-export function useAuthGuard(redirectTo: string = '/login') {
+export function useAuthGuard(redirectTo: string = '/auth/login') {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
@@ -25,7 +25,7 @@ export function useAuthGuard(redirectTo: string = '/login') {
  * Hook to redirect authenticated users away from auth pages
  * Redirects to home if user is already authenticated
  */
-export function useGuestGuard(redirectTo: string = '/') {
+export function useGuestGuard(redirectTo: string = '/dashboard') {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 

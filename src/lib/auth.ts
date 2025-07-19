@@ -26,8 +26,6 @@ async function ensureUsersTableExists(): Promise<void> {
     // Create indexes for performance (separate statements)
     await sql`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`;
-
-    console.log('Users table and indexes created successfully');
   } catch (error) {
     console.error('Database error: Failed to ensure users table exists:', error);
     throw new Error('Failed to initialize users table');
@@ -83,14 +81,15 @@ export async function registerUser(
     console.log(`User registered successfully: ${username} (${userId})`);
     
     return { success: true, userId };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Database error during user registration:', error);
     
     // Handle specific database errors
-    if (error.code === '23505') { // Unique violation
-      if (error.constraint?.includes('username')) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') { // Unique violation
+      const dbError = error as { constraint?: string };
+      if (dbError.constraint?.includes('username')) {
         return { success: false, error: 'Username already exists' };
-      } else if (error.constraint?.includes('email')) {
+      } else if (dbError.constraint?.includes('email')) {
         return { success: false, error: 'Email address already registered' };
       }
     }
@@ -237,11 +236,11 @@ export async function updateUserProfile(
 
     console.log(`User profile updated successfully: ${userId}`);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Database error updating user profile:', error);
     
     // Handle specific database errors
-    if (error.code === '23505' && error.constraint?.includes('email')) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505' && 'constraint' in error && typeof error.constraint === 'string' && error.constraint.includes('email')) {
       return { success: false, error: 'Email address already registered' };
     }
     

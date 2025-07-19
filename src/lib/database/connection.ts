@@ -36,9 +36,9 @@ export async function testConnection(): Promise<boolean> {
 /**
  * Execute a query with error handling
  */
-export async function executeQuery<T = any>(
+export async function executeQuery<T = unknown>(
   query: string,
-  params: any[] = []
+  params: unknown[] = []
 ): Promise<{ rows: T[]; rowCount: number }> {
   try {
     const result = await sql.query(query, params);
@@ -46,7 +46,7 @@ export async function executeQuery<T = any>(
       rows: result.rows as T[],
       rowCount: result.rowCount || 0
     };
-  } catch (error: any) {
+  } catch (error) {
     throw handleDatabaseError(error);
   }
 }
@@ -94,40 +94,41 @@ export async function withTransaction<T>(
 /**
  * Handle database errors and convert to standardized format
  */
-export function handleDatabaseError(error: any): DatabaseError {
+export function handleDatabaseError(error: unknown): DatabaseError {
   console.error('Database error:', error);
 
   // PostgreSQL error codes
-  if (error.code) {
-    switch (error.code) {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const dbError = error as { code: string; detail?: string; message?: string };
+    switch (dbError.code) {
       case '23505': // unique_violation
         return {
           code: ErrorCodes.UNIQUE_VIOLATION,
           message: 'A record with this value already exists',
-          details: error.detail
+          details: dbError.detail
         };
       case '23503': // foreign_key_violation
         return {
           code: ErrorCodes.FOREIGN_KEY_VIOLATION,
           message: 'Referenced record does not exist',
-          details: error.detail
+          details: dbError.detail
         };
       case '23514': // check_violation
         return {
           code: 'CHECK_VIOLATION',
           message: 'Value does not meet constraints',
-          details: error.detail
+          details: dbError.detail
         };
       case '42P01': // undefined_table
         return {
           code: 'TABLE_NOT_FOUND',
           message: 'Database table does not exist',
-          details: error.message
+          details: dbError.message
         };
       default:
         return {
           code: 'DATABASE_ERROR',
-          message: error.message || 'An unknown database error occurred',
+          message: dbError.message || 'An unknown database error occurred',
           details: error
         };
     }
@@ -136,7 +137,7 @@ export function handleDatabaseError(error: any): DatabaseError {
   // Generic error handling
   return {
     code: 'UNKNOWN_ERROR',
-    message: error.message || 'An unknown error occurred',
+    message: error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : 'An unknown error occurred',
     details: error
   };
 }
@@ -181,7 +182,7 @@ export async function getTableColumns(tableName: string): Promise<string[]> {
 /**
  * Execute raw SQL query (use with caution)
  */
-export async function executeRawQuery(query: string): Promise<any> {
+export async function executeRawQuery(query: string): Promise<unknown> {
   try {
     return await sql.query(query);
   } catch (error) {

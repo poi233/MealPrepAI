@@ -71,13 +71,13 @@ export const ApiErrors = {
 /**
  * Wrapper for API route handlers that require authentication
  */
-export function withAuth<T extends any[]>(
-  handler: (user: User, ...args: T) => Promise<Response>
+export function withAuth<T extends unknown[]>(
+  handler: (user: User, request: NextRequest, ...args: T) => Promise<Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<Response> => {
     try {
       const user = await requireAuthenticatedUser(request);
-      return await handler(user, ...args);
+      return await handler(user, request, ...args);
     } catch (error) {
       console.error('API Auth error:', error);
       return Response.json(ApiErrors.UNAUTHORIZED, { status: 401 });
@@ -88,16 +88,16 @@ export function withAuth<T extends any[]>(
 /**
  * Wrapper for API route handlers with optional authentication
  */
-export function withOptionalAuth<T extends any[]>(
-  handler: (user: User | null, ...args: T) => Promise<Response>
+export function withOptionalAuth<T extends unknown[]>(
+  handler: (user: User | null, request: NextRequest, ...args: T) => Promise<Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<Response> => {
     try {
       const user = await getAuthenticatedUser(request);
-      return await handler(user, ...args);
+      return await handler(user, request, ...args);
     } catch (error) {
       console.error('API Auth error:', error);
-      return await handler(null, ...args);
+      return await handler(null, request, ...args);
     }
   };
 }

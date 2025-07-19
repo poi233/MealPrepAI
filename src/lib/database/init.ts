@@ -120,7 +120,6 @@ async function executeSchemaStatements(): Promise<void> {
 
   // Create indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_recipes_cuisine ON recipes(cuisine)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_recipes_meal_type ON recipes(meal_type)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_recipes_difficulty ON recipes(difficulty)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_recipes_avg_rating ON recipes(avg_rating DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at DESC)`;
@@ -355,7 +354,7 @@ export async function createSampleData(): Promise<void> {
       const recipeResult = await sql`
         INSERT INTO recipes (
           created_by_user_id, name, description, ingredients, instructions,
-          nutrition_info, cuisine, meal_type, prep_time, cook_time, difficulty, tags
+          nutrition_info, cuisine, prep_time, cook_time, difficulty, tags
         )
         VALUES (
           ${userId},
@@ -365,7 +364,6 @@ export async function createSampleData(): Promise<void> {
           'Mix oats with water, add sliced banana and enjoy.',
           '{"calories": 300, "protein": 8, "carbs": 60}'::jsonb,
           'American',
-          'breakfast',
           5,
           10,
           'easy',

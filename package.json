@@ -10,6 +10,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "db:init": "npx tsx src/lib/database/cli.ts init",
     "db:cleanup": "npx tsx src/lib/database/cli.ts cleanup",
     "db:verify": "npx tsx src/lib/database/cli.ts verify",
@@ -46,6 +49,7 @@
     "@tanstack-query-firebase/react": "^1.0.5",
     "@tanstack/react-query": "^5.66.0",
     "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^10.0.0",
     "@vercel/postgres": "^0.9.0",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
@@ -66,6 +70,7 @@
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.1.0",
     "vercel": "^41.7.4",
     "zod": "^3.24.2"
   },
@@ -73,9 +78,13 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitest/ui": "^3.2.4",
+    "eslint": "9.31.0",
+    "eslint-config-next": "15.4.1",
     "genkit-cli": "^1.8.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
