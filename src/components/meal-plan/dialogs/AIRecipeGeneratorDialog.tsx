@@ -186,30 +186,6 @@ export default function AIRecipeGeneratorDialog({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="mealType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Meal Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isGenerating}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select meal type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="breakfast">Breakfast</SelectItem>
-                          <SelectItem value="lunch">Lunch</SelectItem>
-                          <SelectItem value="dinner">Dinner</SelectItem>
-                          <SelectItem value="snack">Snack</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="servings"
                   render={({ field }) => (
                     <FormItem>
@@ -320,7 +296,6 @@ export default function AIRecipeGeneratorDialog({
                   <p className="text-gray-600 mt-1">{generatedRecipe.description}</p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge variant="outline">{generatedRecipe.mealType}</Badge>
                   <Badge variant="outline">{generatedRecipe.difficulty}</Badge>
                   <Badge variant="outline">{generatedRecipe.prepTime + generatedRecipe.cookTime} min total</Badge>
                   {generatedRecipe.cuisine && <Badge variant="outline">{generatedRecipe.cuisine}</Badge>}
