@@ -27,7 +27,6 @@ export const POST = withAuth(async (user: User, request: NextRequest) => {
     // Generate recipe using AI
     const result = await createRecipeWithAI({
       recipeName,
-      mealType,
       cuisine,
       dietaryRestrictions,
       servings,
@@ -54,7 +53,6 @@ export const POST = withAuth(async (user: User, request: NextRequest) => {
           description: result.recipe.description,
           ingredients: result.recipe.ingredients,
           instructions: result.recipe.instructions,
-          mealType: result.recipe.mealType,
           prepTime: result.recipe.prepTime,
           cookTime: result.recipe.cookTime,
           difficulty: result.recipe.difficulty,

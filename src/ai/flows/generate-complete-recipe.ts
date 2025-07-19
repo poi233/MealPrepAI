@@ -13,7 +13,6 @@ import type { Recipe, Ingredient, NutritionInfo } from '@/types/database.types';
 
 const GenerateCompleteRecipeInputSchema = z.object({
   recipeName: z.string().describe('The name of the recipe to generate.'),
-  mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional().describe('The type of meal this recipe is for.'),
   cuisine: z.string().optional().describe('The cuisine type for this recipe.'),
   dietaryRestrictions: z.array(z.string()).optional().describe('Any dietary restrictions to consider.'),
   servings: z.number().optional().default(4).describe('Number of servings this recipe should make.'),
@@ -44,7 +43,6 @@ const GenerateCompleteRecipeOutputSchema = z.object({
   instructions: z.string().describe('Step-by-step cooking instructions.'),
   nutritionInfo: NutritionInfoSchema.describe('Nutritional information per serving.'),
   cuisine: z.string().optional().describe('The cuisine type.'),
-  mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).describe('The meal type.'),
   prepTime: z.number().describe('Preparation time in minutes.'),
   cookTime: z.number().describe('Cooking time in minutes.'),
   totalTime: z.number().describe('Total time in minutes (prep + cook).'),
@@ -66,7 +64,6 @@ const prompt = ai.definePrompt({
   prompt: `You are a professional chef and nutritionist. Generate a complete, detailed recipe based on the given parameters.
 
 Recipe Name: {{{recipeName}}}
-{{#if mealType}}Meal Type: {{{mealType}}}{{/if}}
 {{#if cuisine}}Cuisine: {{{cuisine}}}{{/if}}
 {{#if dietaryRestrictions}}Dietary Restrictions: {{{dietaryRestrictions}}}{{/if}}
 Servings: {{{servings}}}
@@ -87,7 +84,6 @@ Guidelines:
 - Make nutrition estimates reasonable and realistic
 - Choose appropriate difficulty level (easy: basic techniques, medium: some skill required, hard: advanced techniques)
 - Include 3-8 relevant tags
-- If meal type isn't specified, infer it from the recipe name
 - If cuisine isn't specified, infer it from the recipe name and ingredients
 
 Ensure all measurements are precise and instructions are clear enough for a home cook to follow successfully.`,

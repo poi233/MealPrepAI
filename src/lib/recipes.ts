@@ -137,6 +137,11 @@ export async function createRecipe(recipe: Omit<Recipe, 'id' | 'totalTime' | 'av
   validateRecipeData(recipe);
   
   try {
+    const tagsArr = recipe.tags ?? [];
+    const tagsLiteral = `{${tagsArr
+      .map(t => `"${t.replace(/"/g, '\"')}"`)
+      .join(',')}}`;
+  
     const { rows } = await sql`
       INSERT INTO recipes (
         created_by_user_id, name, description, ingredients, instructions,
@@ -153,9 +158,9 @@ export async function createRecipe(recipe: Omit<Recipe, 'id' | 'totalTime' | 'av
         ${recipe.cuisine || null},
         ${recipe.prepTime || 0},
         ${recipe.cookTime || 0},
-        ${recipe.difficulty || 'medium'},
+        ${recipe.difficulty || "medium"},
         ${recipe.imageUrl || null},
-        ${JSON.stringify(recipe.tags || [])}
+        ${tagsLiteral}::text[]
       )
       RETURNING *
     `;

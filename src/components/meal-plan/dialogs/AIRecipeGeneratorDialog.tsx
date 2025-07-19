@@ -38,7 +38,6 @@ import type { Recipe } from '@/types/database.types';
 
 const aiRecipeFormSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required'),
-  mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional(),
   cuisine: z.string().optional(),
   dietaryRestrictions: z.array(z.string()).optional(),
   servings: z.number().min(1).max(20).optional(),
@@ -51,14 +50,12 @@ interface AIRecipeGeneratorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onRecipeGenerated: (recipe: Recipe) => void;
-  defaultMealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
 }
 
 export default function AIRecipeGeneratorDialog({
   isOpen,
   onClose,
-  onRecipeGenerated,
-  defaultMealType,
+  onRecipeGenerated
 }: AIRecipeGeneratorDialogProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,7 +66,6 @@ export default function AIRecipeGeneratorDialog({
     resolver: zodResolver(aiRecipeFormSchema),
     defaultValues: {
       recipeName: '',
-      mealType: defaultMealType,
       cuisine: '',
       dietaryRestrictions: [],
       servings: 2,

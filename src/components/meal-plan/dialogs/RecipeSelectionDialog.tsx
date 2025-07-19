@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Clock, Star, ChefHat } from "lucide-react";
-import { getAllRecipes, getRecipesByMealType } from "@/lib/sample-recipes";
+import { getAllRecipes } from "@/lib/sample-recipes";
 import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 import RecipeCard from "@/components/meal-plan/cards/RecipeCard";
 import type { Recipe } from "@/types/database.types";
