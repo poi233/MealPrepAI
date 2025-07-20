@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuestGuard } from '@/hooks/useAuthGuard';
+import { getErrorMessage } from '@/lib/error-utils';
 
 export default function LoginPage() {
     const [formData, setFormData] = useState({
@@ -39,10 +40,10 @@ export default function LoginPage() {
                 router.push(redirectTo);
                 router.refresh();
             } else {
-                setError(result.error || 'Login failed');
+                setError(getErrorMessage(result.error, 'Login failed'));
             }
-        } catch {
-            setError('Network error. Please try again.');
+        } catch (error) {
+            setError(getErrorMessage(error, 'Network error. Please try again.'));
         } finally {
             setIsLoading(false);
         }
@@ -56,7 +57,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
@@ -108,7 +109,7 @@ export default function LoginPage() {
                     </form>
 
                     <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                             Don&apos;t have an account?{' '}
                             <Link href="/auth/register" className="font-medium text-primary hover:underline">
                                 Sign up

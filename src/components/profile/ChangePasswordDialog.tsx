@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
+import { DjangoAuthService } from '@/lib/django-auth';
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;
@@ -72,36 +73,21 @@ export function ChangePasswordDialog({ isOpen, onClose }: ChangePasswordDialogPr
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/change-password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+      await DjangoAuthService.changePassword({
+        old_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirm: confirmPassword,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "密码修改成功",
-          description: "您的密码已成功更新。",
-        });
-        handleClose();
-      } else {
-        toast({
-          title: "密码修改失败",
-          description: data.error || "修改密码时出现错误。",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "密码修改成功",
+        description: "您的密码已成功更新。",
+      });
+      handleClose();
     } catch (error) {
       toast({
-        title: "网络错误",
-        description: "请检查网络连接后重试。",
+        title: "密码修改失败",
+        description: error instanceof Error ? error.message : "修改密码时出现错误。",
         variant: "destructive",
       });
     } finally {

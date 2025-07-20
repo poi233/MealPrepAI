@@ -35,6 +35,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Loader2, X, Plus } from 'lucide-react';
 import type { Recipe } from '@/types/database.types';
+import { DjangoRecipeService } from '@/lib/django-recipe-service';
+import { getErrorMessage } from '@/lib/error-utils';
 
 const aiRecipeFormSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required'),
@@ -59,6 +61,7 @@ export default function AIRecipeGeneratorDialog({
 }: AIRecipeGeneratorDialogProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [newRestriction, setNewRestriction] = useState('');
 
@@ -94,30 +97,47 @@ export default function AIRecipeGeneratorDialog({
     setGeneratedRecipe(null);
 
     try {
-      const response = await fetch('/api/recipes/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
+      const recipe = await DjangoRecipeService.generateRecipe({
+        name: values.recipeName,
+        dietary_restrictions: values.dietaryRestrictions,
+        cuisine_preference: values.cuisine,
       });
 
-      const data = await response.json();
+      // Convert Django recipe format to database format with proper defaults
+      const convertedRecipe: Recipe = {
+        id: recipe.id || '',
+        createdByUserId: recipe.created_by_user_id || '',
+        name: recipe.name || values.recipeName,
+        description: recipe.description || `Delicious ${values.recipeName.toLowerCase()} recipe`,
+        ingredients: recipe.ingredients || [],
+        instructions: recipe.instructions || '',
+        nutritionInfo: recipe.nutrition_info || {},
+        cuisine: recipe.cuisine || values.cuisine || 'International',
+        prepTime: recipe.prep_time || 15,
+        cookTime: recipe.cook_time || 30,
+        totalTime: (recipe.prep_time || 15) + (recipe.cook_time || 30),
+        difficulty: recipe.difficulty || 'medium',
+        avgRating: Number(recipe.avg_rating) || 0,
+        ratingCount: Number(recipe.rating_count) || 0,
+        imageUrl: recipe.image_url || '',
+        tags: recipe.tags || [],
+        createdAt: recipe.created_at ? new Date(recipe.created_at) : new Date(),
+        updatedAt: recipe.updated_at ? new Date(recipe.updated_at) : new Date()
+      };
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate recipe');
-      }
-
-      setGeneratedRecipe(data);
+      console.log('Generated recipe from API:', JSON.stringify(recipe, null, 2));
+      console.log('Converted recipe:', JSON.stringify(convertedRecipe, null, 2));
+      
+      setGeneratedRecipe(convertedRecipe);
       toast({
         title: 'Recipe Generated Successfully!',
-        description: `"${data.name}" has been created with AI assistance.`,
+        description: `"${convertedRecipe.name}" has been created with AI assistance.`,
       });
     } catch (error) {
       console.error('Error generating recipe:', error);
       toast({
         title: 'Generation Failed',
-        description: error instanceof Error ? error.message : 'Failed to generate recipe',
+        description: getErrorMessage(error, 'Failed to generate recipe'),
         variant: 'destructive',
       });
     } finally {
@@ -125,10 +145,51 @@ export default function AIRecipeGeneratorDialog({
     }
   };
 
-  const handleUseRecipe = () => {
-    if (generatedRecipe) {
-      onRecipeGenerated(generatedRecipe);
+  const handleUseRecipe = async () => {
+    if (!generatedRecipe) return;
+    
+    setIsSaving(true);
+    try {
+      // Save the AI-generated recipe to the database
+      const savedRecipe = await DjangoRecipeService.saveAIGeneratedRecipe(generatedRecipe);
+      
+      // Convert Django recipe format to database format
+      const convertedSavedRecipe: Recipe = {
+        id: savedRecipe.id,
+        createdByUserId: savedRecipe.created_by_user_id,
+        name: savedRecipe.name,
+        description: savedRecipe.description,
+        ingredients: savedRecipe.ingredients,
+        instructions: savedRecipe.instructions,
+        nutritionInfo: savedRecipe.nutrition_info || {},
+        cuisine: savedRecipe.cuisine,
+        prepTime: savedRecipe.prep_time || 0,
+        cookTime: savedRecipe.cook_time || 0,
+        totalTime: (savedRecipe.prep_time || 0) + (savedRecipe.cook_time || 0),
+        difficulty: savedRecipe.difficulty || 'medium',
+        avgRating: Number(savedRecipe.avg_rating) || 0,
+        ratingCount: Number(savedRecipe.rating_count) || 0,
+        imageUrl: savedRecipe.image_url,
+        tags: savedRecipe.tags || [],
+        createdAt: savedRecipe.created_at ? new Date(savedRecipe.created_at) : new Date(),
+        updatedAt: savedRecipe.updated_at ? new Date(savedRecipe.updated_at) : new Date()
+      };
+      
+      onRecipeGenerated(convertedSavedRecipe);
+      toast({
+        title: 'Recipe Saved!',
+        description: `"${convertedSavedRecipe.name}" has been saved to your recipe collection.`,
+      });
       handleClose();
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      toast({
+        title: 'Save Failed',
+        description: getErrorMessage(error, 'Failed to save recipe to your collection'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -136,6 +197,7 @@ export default function AIRecipeGeneratorDialog({
     form.reset();
     setGeneratedRecipe(null);
     setNewRestriction('');
+    setIsSaving(false);
     onClose();
   };
 
@@ -350,11 +412,18 @@ export default function AIRecipeGeneratorDialog({
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>
+              <Button type="button" variant="outline" onClick={handleClose} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleUseRecipe}>
-                Use This Recipe
+              <Button onClick={handleUseRecipe} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving Recipe...
+                  </>
+                ) : (
+                  'Use This Recipe'
+                )}
               </Button>
             </DialogFooter>
           </div>

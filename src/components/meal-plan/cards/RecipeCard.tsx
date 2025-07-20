@@ -142,7 +142,7 @@ export default function RecipeCard({
               </div>
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-current" />
-                <span>{recipe.avgRating.toFixed(1)}</span>
+                <span>{(Number(recipe.avgRating) || 0).toFixed(1)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <ChefHat className="h-3 w-3" />

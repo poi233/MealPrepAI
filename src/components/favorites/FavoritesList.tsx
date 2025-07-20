@@ -17,12 +17,12 @@ interface FavoritesListProps {
 
 export function FavoritesList({ mealType, limit }: FavoritesListProps) {
   const { favorites, getFavoritesByMeal, isLoading, error } = useFavorites();
-  
-  const displayFavorites = mealType 
+
+  const displayFavorites = mealType
     ? getFavoritesByMeal(mealType)
     : favorites;
 
-  const limitedFavorites = limit 
+  const limitedFavorites = limit
     ? displayFavorites.slice(0, limit)
     : displayFavorites;
 
@@ -65,7 +65,7 @@ export function FavoritesList({ mealType, limit }: FavoritesListProps) {
           No favorites yet
         </h3>
         <p className="text-gray-600">
-          {mealType 
+          {mealType
             ? `You haven't favorited any ${mealType} recipes yet.`
             : "You haven't favorited any recipes yet. Start exploring recipes and add them to your favorites!"
           }
@@ -104,7 +104,7 @@ function FavoriteCard({ favorite }: FavoriteCardProps) {
           </Badge>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-3">
         {recipe.description && (
           <p className="text-sm text-gray-600 line-clamp-2">
@@ -119,7 +119,7 @@ function FavoriteCard({ favorite }: FavoriteCardProps) {
           </div>
           <div className="flex items-center gap-1">
             <ChefHat size={16} />
-            <span>{recipe.avgRating.toFixed(1)}</span>
+            <span>{(Number(recipe.avgRating) || 0).toFixed(1)}</span>
           </div>
           {personalRating && (
             <div className="flex items-center gap-1">

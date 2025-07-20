@@ -303,6 +303,6 @@ export function formatRecipeForDisplay(recipe: Recipe): Recipe & {
     formattedPrepTime: formatTime(recipe.prepTime),
     formattedCookTime: formatTime(recipe.cookTime),
     formattedTotalTime: formatTime(recipe.totalTime),
-    formattedRating: recipe.avgRating.toFixed(1)
+    formattedRating: (Number(recipe.avgRating) || 0).toFixed(1)
   };
 }

@@ -15,6 +15,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertTriangle } from 'lucide-react';
+import { DjangoAuthService } from '@/lib/django-auth';
 
 interface DeleteAccountDialogProps {
   isOpen: boolean;
@@ -41,32 +42,17 @@ export function DeleteAccountDialog({ isOpen, onClose }: DeleteAccountDialogProp
 
     setIsLoading(true);
     try {
-      // Note: This would need to be implemented as an API route
-      const response = await fetch('/api/auth/delete-account', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      await DjangoAuthService.deleteAccount();
+      
+      toast({
+        title: "账户已删除",
+        description: "您的账户和所有相关数据已被永久删除。",
       });
-
-      if (response.ok) {
-        toast({
-          title: "账户已删除",
-          description: "您的账户和所有相关数据已被永久删除。",
-        });
-        await logout();
-      } else {
-        const data = await response.json();
-        toast({
-          title: "删除失败",
-          description: data.error || "删除账户时出现错误。",
-          variant: "destructive",
-        });
-      }
+      await logout();
     } catch (error) {
       toast({
-        title: "网络错误",
-        description: "请检查网络连接后重试。",
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除账户时出现错误。",
         variant: "destructive",
       });
     } finally {

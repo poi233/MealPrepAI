@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Clock, Star, ChefHat } from "lucide-react";
-import { getAllRecipes } from "@/lib/sample-recipes";
+import { getAllRecipes, getRecipesByUserId, getRecipesByUserIdAndMealType } from "@/lib/sample-recipes";
 import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 import RecipeCard from "@/components/meal-plan/cards/RecipeCard";
 import type { Recipe } from "@/types/database.types";
@@ -17,6 +17,7 @@ interface RecipeSelectionDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectRecipe: (recipe: Recipe) => void;
+  currentUserId?: string;
   mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   dayName?: string;
 }
@@ -25,6 +26,7 @@ export default function RecipeSelectionDialog({
   isOpen,
   onClose,
   onSelectRecipe,
+  currentUserId,
   mealType,
   dayName
 }: RecipeSelectionDialogProps) {
@@ -60,10 +62,17 @@ export default function RecipeSelectionDialog({
     setIsLoading(true);
     try {
       let loadedRecipes: Recipe[];
+      
+      if (!currentUserId) {
+        // If no user ID provided, show empty state
+        setRecipes([]);
+        return;
+      }
+      
       if (selectedMealType === 'all') {
-        loadedRecipes = await getAllRecipes();
+        loadedRecipes = await getRecipesByUserId(currentUserId);
       } else {
-        loadedRecipes = await getRecipesByMealType(selectedMealType as any);
+        loadedRecipes = await getRecipesByUserIdAndMealType(currentUserId, selectedMealType);
       }
       setRecipes(loadedRecipes);
     } catch (error) {
@@ -172,7 +181,12 @@ export default function RecipeSelectionDialog({
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No recipes found matching your search.</p>
+                <p className="text-muted-foreground">
+                  {!currentUserId 
+                    ? "Please log in to view your recipes." 
+                    : "No recipes found. Create some recipes first to add them to your meal plan."
+                  }
+                </p>
               </div>
             )}
           </div>

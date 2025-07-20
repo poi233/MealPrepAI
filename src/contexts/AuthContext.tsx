@@ -1,7 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { DjangoAuthService } from '@/lib/django-auth';
+import type { User as DjangoUser } from '@/lib/django-auth';
 import type { User } from '@/types/database.types';
+import { createErrorResponse } from '@/lib/error-utils';
 
 interface AuthContextType {
   user: User | null;
@@ -42,6 +45,24 @@ interface ProfileUpdates {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to convert Django user to database user format
+function convertDjangoUserToUser(djangoUser: DjangoUser): User {
+  return {
+    id: djangoUser.id,
+    username: djangoUser.username || djangoUser.email,
+    email: djangoUser.email,
+    displayName: djangoUser.first_name,
+    dietaryPreferences: {
+      allergies: djangoUser.allergies || [],
+      dietType: djangoUser.dietary_preferences?.[0] || undefined,
+      dislikes: [],
+      calorieTarget: undefined
+    },
+    createdAt: djangoUser.date_joined ? new Date(djangoUser.date_joined) : new Date(),
+    updatedAt: djangoUser.last_login ? new Date(djangoUser.last_login) : new Date()
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Fetch current user on mount and check for session errors
   useEffect(() => {
     fetchCurrentUser();
-    
+
     // Check for session error in URL params
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
@@ -63,13 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
+      if (!DjangoAuthService.isAuthenticated()) {
         setUser(null);
+        setIsLoading(false);
+        return;
       }
+
+      const djangoUser = await DjangoAuthService.getCurrentUser();
+      setUser(convertDjangoUserToUser(djangoUser));
     } catch (error) {
       console.error('Error fetching current user:', error);
       setUser(null);
@@ -80,56 +102,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (usernameOrEmail: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ usernameOrEmail, password }),
+      const response = await DjangoAuthService.login({
+        email: usernameOrEmail,
+        password
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setUser(data.user);
-        return { success: true };
-      } else {
-        return { success: false, error: data.error };
-      }
+      setUser(convertDjangoUserToUser(response.user));
+      return { success: true };
     } catch (error) {
-      return { success: false, error: 'Network error. Please try again.' };
+      return createErrorResponse(error, 'Login failed');
     }
   };
 
   const register = async (userData: RegisterData) => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
+      const response = await DjangoAuthService.register({
+        email: userData.email,
+        password: userData.password,
+        password_confirm: userData.password,
+        username: userData.username,
+        first_name: userData.displayName
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Fetch the user data after successful registration
-        await fetchCurrentUser();
-        return { success: true };
-      } else {
-        return { success: false, error: data.error };
-      }
+      setUser(convertDjangoUserToUser(response.user));
+      return { success: true };
     } catch (error) {
-      return { success: false, error: 'Network error. Please try again.' };
+      return createErrorResponse(error, 'Registration failed');
     }
   };
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
+      await DjangoAuthService.logout();
       setUser(null);
       // Redirect to login page
       window.location.href = '/auth/login';
@@ -143,25 +147,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (updates: ProfileUpdates) => {
     try {
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
+      await DjangoAuthService.updateProfile({
+        first_name: updates.displayName,
+        dietary_preferences: updates.dietaryPreferences?.allergies || []
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Refresh user data after successful update
-        await fetchCurrentUser();
-        return { success: true };
-      } else {
-        return { success: false, error: data.error };
-      }
+      // Refresh user data after successful update
+      await fetchCurrentUser();
+      return { success: true };
     } catch (error) {
-      return { success: false, error: 'Network error. Please try again.' };
+      return createErrorResponse(error, 'Profile update failed');
     }
   };
 
@@ -235,8 +230,8 @@ export function withAuth<P extends object>(Component: React.ComponentType<P>) {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Session Error</h1>
             <p className="text-gray-600 mb-4">{sessionError}</p>
             <div className="flex gap-2 justify-center">
-              <a 
-                href="/auth/login" 
+              <a
+                href="/auth/login"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
               >
                 Sign In Again
@@ -259,8 +254,8 @@ export function withAuth<P extends object>(Component: React.ComponentType<P>) {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
             <p className="text-gray-600 mb-4">You need to be logged in to access this page.</p>
-            <a 
-              href="/auth/login" 
+            <a
+              href="/auth/login"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
             >
               Sign In

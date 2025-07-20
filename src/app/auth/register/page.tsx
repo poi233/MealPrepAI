@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuestGuard } from '@/hooks/useAuthGuard';
 import type { DietaryPreferences } from '@/types/database.types';
+import { getErrorMessage } from '@/lib/error-utils';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,11 +23,11 @@ export default function RegisterPage() {
     confirmPassword: '',
     displayName: ''
   });
-  const [dietaryPreferences, setDietaryPreferences] = useState<DietaryPreferences>({
-    allergies: [],
-    dietType: undefined,
-    dislikes: [],
-    calorieTarget: undefined
+  const [dietaryPreferences, setDietaryPreferences] = useState({
+    allergies: [] as string[],
+    dietType: undefined as 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean' | undefined,
+    dislikes: [] as string[],
+    calorieTarget: undefined as number | undefined
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,13 +37,65 @@ export default function RegisterPage() {
   // Redirect authenticated users away from register page
   useGuestGuard();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = () => {
+    // Reset error
     setError('');
+
+    // Validate required fields
+    if (!formData.username.trim()) {
+      setError('Username is required');
+      return false;
+    }
+
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+
+    if (!formData.password) {
+      setError('Password is required');
+      return false;
+    }
+
+    // Validate username format (alphanumeric and underscores only, 3-30 chars)
+    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+    if (!usernameRegex.test(formData.username)) {
+      setError('Username must be 3-30 characters long and contain only letters, numbers, and underscores');
+      return false;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+
+    // Validate password strength
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return false;
+    }
+
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      return false;
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
       return;
     }
 
@@ -61,10 +114,10 @@ export default function RegisterPage() {
         router.push('/dashboard');
         router.refresh();
       } else {
-        setError(result.error || 'Registration failed');
+        setError(getErrorMessage(result.error, 'Registration failed'));
       }
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (error) {
+      setError(getErrorMessage(error, 'Network error. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +141,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="w-full">
       <Card className="w-full max-w-2xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
@@ -181,7 +234,7 @@ export default function RegisterPage() {
                   <Select onValueChange={(value) => 
                     setDietaryPreferences(prev => ({ 
                       ...prev, 
-                      dietType: value as DietaryPreferences['dietType'] 
+                      dietType: value as 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean'
                     }))
                   }>
                     <SelectTrigger>
@@ -242,7 +295,7 @@ export default function RegisterPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
               <Link href="/auth/login" className="font-medium text-primary hover:underline">
                 Sign in

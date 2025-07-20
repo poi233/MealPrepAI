@@ -194,7 +194,7 @@ body {
   /* Day card styling */
   .day-card {
     @apply bg-card border border-border shadow-lg hover:shadow-xl transition-all duration-300;
-    min-height: 500px;
+    min-height: 400px;
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
@@ -206,7 +206,86 @@ body {
 
   @media (min-width: 1024px) {
     .day-card {
-      min-height: 600px;
+      min-height: 450px;
+    }
+  }
+
+  /* Multi-recipe meal slot styling */
+  .meal-slot {
+    @apply border rounded-lg p-2 bg-card/50 min-h-[100px] flex flex-col;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .meal-slot:hover {
+    @apply bg-card/70;
+    border-color: hsl(var(--primary) / 0.2);
+  }
+
+  /* Simple recipe card styling */
+  .simple-recipe-card {
+    @apply bg-background/60 hover:bg-background/80 rounded-md p-2 border border-border/50 hover:border-border;
+    transition: all 0.2s ease-in-out;
+    min-height: 32px;
+  }
+
+  .simple-recipe-card:hover {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  /* Compact button styling */
+  .btn-compact {
+    @apply h-6 text-xs px-2;
+    min-width: auto;
+  }
+
+  .btn-compact-icon {
+    @apply h-3 w-3;
+  }
+
+  /* Week selector responsive styling */
+  .week-selector {
+    @apply flex items-center justify-between space-x-2;
+  }
+
+  @media (max-width: 640px) {
+    .week-selector {
+      @apply flex-col space-x-0 space-y-2;
+    }
+    
+    .week-selector .flex-1 {
+      @apply w-full;
+    }
+  }
+
+  /* Recipe details dialog responsive styling */
+  .recipe-details-grid {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  @media (min-width: 768px) {
+    .recipe-details-grid {
+      @apply grid-cols-4;
+    }
+  }
+
+  /* Mobile optimizations for meal slots */
+  @media (max-width: 768px) {
+    .day-card {
+      min-height: 350px;
+    }
+    
+    .meal-slot {
+      min-height: 80px;
+      @apply p-1.5;
+    }
+    
+    .simple-recipe-card {
+      @apply p-1.5;
+      min-height: 28px;
+    }
+    
+    .simple-recipe-card span {
+      @apply text-xs;
     }
   }
 

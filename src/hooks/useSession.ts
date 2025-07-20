@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { DjangoAuthService } from '@/lib/django-auth';
 
 interface SessionInfo {
   isActive: boolean;
@@ -53,13 +54,16 @@ export function useSession() {
     if (isAuthenticated) {
       // Refresh user data to extend session
       try {
-        const response = await fetch('/api/auth/me');
-        if (!response.ok) {
-          // Session might be expired, logout
-          await logout();
-        }
+        await DjangoAuthService.getCurrentUser();
+        // If successful, session is still valid
+        setSessionInfo(prev => ({
+          ...prev,
+          lastActivity: new Date()
+        }));
       } catch (error) {
         console.error('Error extending session:', error);
+        // If refresh fails, logout user
+        await logout();
       }
     }
   };

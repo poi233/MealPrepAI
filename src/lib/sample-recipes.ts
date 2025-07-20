@@ -251,3 +251,80 @@ export async function getAllRecipes(): Promise<Recipe[]> {
     throw error;
   }
 }
+
+/**
+ * Gets recipes created by a specific user
+ */
+export async function getRecipesByUserId(userId: string): Promise<Recipe[]> {
+  try {
+    const { rows } = await sql`
+      SELECT * FROM recipes
+      WHERE created_by_user_id = ${userId}
+      ORDER BY name ASC
+    `;
+
+    return rows.map(row => ({
+      id: row.id,
+      createdByUserId: row.created_by_user_id,
+      name: row.name,
+      description: row.description,
+      ingredients: row.ingredients,
+      instructions: row.instructions,
+      nutritionInfo: row.nutrition_info,
+      cuisine: row.cuisine,
+      mealType: row.meal_type,
+      prepTime: row.prep_time,
+      cookTime: row.cook_time,
+      totalTime: row.total_time,
+      difficulty: row.difficulty,
+      avgRating: parseFloat(row.avg_rating.toString()),
+      ratingCount: row.rating_count,
+      imageUrl: row.image_url,
+      tags: row.tags,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } catch (error) {
+    console.error('Failed to get user recipes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets recipes by meal type for a specific user
+ */
+export async function getRecipesByUserIdAndMealType(userId: string, mealType: string): Promise<Recipe[]> {
+  try {
+    const { rows } = await sql`
+      SELECT * FROM recipes
+      WHERE created_by_user_id = ${userId}
+      AND meal_type = ${mealType}
+      ORDER BY name ASC
+    `;
+
+    return rows.map(row => ({
+      id: row.id,
+      createdByUserId: row.created_by_user_id,
+      name: row.name,
+      description: row.description,
+      ingredients: row.ingredients,
+      instructions: row.instructions,
+      nutritionInfo: row.nutrition_info,
+      cuisine: row.cuisine,
+      mealType: row.meal_type,
+      prepTime: row.prep_time,
+      cookTime: row.cook_time,
+      totalTime: row.total_time,
+      difficulty: row.difficulty,
+      avgRating: parseFloat(row.avg_rating.toString()),
+      ratingCount: row.rating_count,
+      imageUrl: row.image_url,
+      tags: row.tags,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } catch (error) {
+    console.error('Failed to get user recipes by meal type:', error);
+    throw error;
+  }
+}

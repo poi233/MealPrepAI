@@ -8,19 +8,19 @@ export async function generateRecipeDetailsAction(
 ): Promise<GenerateRecipeDetailsOutput | { error: string }> {
   try {
     if (!input.recipeName || input.recipeName.trim() === "") {
-      return { error: "食谱名称不能为空。" };
+      return { error: "Recipe name is required." };
     }
     const result = await generateRecipeDetails(input);
     if (!result || !result.ingredients || !result.instructions) {
       if (result && 'error' in result) {
-        return { error: 'AI 错误: ' + String(result.error) };
+        return { error: 'AI Error: ' + String(result.error) };
       }
-      return { error: "生成食谱详情失败。AI返回了意外结果。" };
+      return { error: "Failed to generate recipe details. AI returned unexpected result." };
     }
     return result;
   } catch (e) {
-    console.error("生成食谱详情时出错:", e);
-    const errorMessage = e instanceof Error ? e.message : "生成食谱详情时发生未知错误。";
+    console.error("Error generating recipe details:", e);
+    const errorMessage = e instanceof Error ? e.message : "Unknown error occurred while generating recipe details.";
     return { error: errorMessage };
   }
 }
@@ -30,25 +30,25 @@ export async function suggestRecipeAction(
 ): Promise<SuggestRecipeOutput | { error: string }> {
   try {
     if (!input.day || input.day.trim() === "") {
-      return { error: "推荐食谱时星期不能为空。" };
+      return { error: "Day is required for recipe suggestion." };
     }
     if (!input.mealType || input.mealType.trim() === "") {
-      return { error: "推荐食谱时膳食类型不能为空。" };
+      return { error: "Meal type is required for recipe suggestion." };
     }
     if (!input.planDescription || input.planDescription.trim() === "") {
-      return { error: "推荐食谱时计划描述不能为空。" };
+      return { error: "Plan description is required for recipe suggestion." };
     }
     const result = await suggestRecipe(input);
      if (!result || !result.recipeName || !result.ingredients || !result.instructions) {
       if (result && 'error' in result) {
-        return { error: 'AI 错误: ' + String(result.error) };
+        return { error: 'AI Error: ' + String(result.error) };
       }
-      return { error: "推荐食谱失败。AI返回了意外结果。" };
+      return { error: "Failed to suggest recipe. AI returned unexpected result." };
     }
     return result;
   } catch (e) {
-    console.error("推荐食谱时出错:", e);
-    const errorMessage = e instanceof Error ? e.message : "推荐食谱时发生未知错误。";
+    console.error("Error suggesting recipe:", e);
+    const errorMessage = e instanceof Error ? e.message : "Unknown error occurred while suggesting recipe.";
     return { error: errorMessage };
   }
 }

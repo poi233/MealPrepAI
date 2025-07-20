@@ -3,16 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import type { Favorite } from '@/types/database.types';
-import {
-  getUserFavorites,
-  addToFavorites,
-  removeFromFavorites,
-  isFavorited,
-  getFavoriteStatusForRecipes,
-  updateFavorite,
-  getFavoritesByMealType,
-  getFavoritesCount
-} from '@/lib/favorites';
+import { DjangoFavoritesService } from '@/lib/django-favorites';
 
 interface FavoritesContextType {
   favorites: Favorite[];
@@ -63,7 +54,38 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      const { favorites: userFavorites } = await getUserFavorites(user.id);
+      const { favorites: djangoFavorites } = await DjangoFavoritesService.getUserFavorites();
+      console.log('Raw Django favorites:', djangoFavorites);
+      
+      // Convert Django favorites to database format
+      const userFavorites: Favorite[] = djangoFavorites.map(fav => ({
+        userId: user.id,
+        recipeId: fav.recipe.id,
+        recipe: {
+          id: fav.recipe.id,
+          createdByUserId: fav.recipe.created_by_user_id,
+          name: fav.recipe.name,
+          description: fav.recipe.description,
+          ingredients: fav.recipe.ingredients,
+          instructions: fav.recipe.instructions,
+          nutritionInfo: fav.recipe.nutrition_info || {},
+          cuisine: fav.recipe.cuisine,
+          prepTime: fav.recipe.prep_time || 0,
+          cookTime: fav.recipe.cook_time || 0,
+          totalTime: (fav.recipe.prep_time || 0) + (fav.recipe.cook_time || 0),
+          difficulty: fav.recipe.difficulty || 'medium',
+          avgRating: Number(fav.recipe.avg_rating) || 0,
+          ratingCount: Number(fav.recipe.rating_count) || 0,
+          imageUrl: fav.recipe.image_url,
+          tags: fav.recipe.tags || [],
+          createdAt: fav.recipe.created_at ? new Date(fav.recipe.created_at) : new Date(),
+          updatedAt: fav.recipe.updated_at ? new Date(fav.recipe.updated_at) : new Date()
+        },
+        personalRating: fav.personal_rating,
+        personalNotes: fav.personal_notes,
+        addedAt: new Date(fav.created_at)
+      }));
+      
       setFavorites(userFavorites);
       setFavoriteIds(new Set(userFavorites.map(fav => fav.recipeId)));
     } catch (err) {
@@ -85,7 +107,40 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const favorite = await addToFavorites(user.id, recipeId, personalRating, personalNotes);
+      const djangoFavorite = await DjangoFavoritesService.addToFavorites({
+        recipe_id: recipeId,
+        personal_rating: personalRating,
+        personal_notes: personalNotes
+      });
+      
+      // Convert to database format
+      const favorite: Favorite = {
+        userId: user.id,
+        recipeId: djangoFavorite.recipe.id,
+        recipe: {
+          id: djangoFavorite.recipe.id,
+          createdByUserId: djangoFavorite.recipe.created_by_user_id,
+          name: djangoFavorite.recipe.name,
+          description: djangoFavorite.recipe.description,
+          ingredients: djangoFavorite.recipe.ingredients,
+          instructions: djangoFavorite.recipe.instructions,
+          nutritionInfo: djangoFavorite.recipe.nutrition_info || {},
+          cuisine: djangoFavorite.recipe.cuisine,
+          prepTime: djangoFavorite.recipe.prep_time || 0,
+          cookTime: djangoFavorite.recipe.cook_time || 0,
+          totalTime: (djangoFavorite.recipe.prep_time || 0) + (djangoFavorite.recipe.cook_time || 0),
+          difficulty: djangoFavorite.recipe.difficulty || 'medium',
+          avgRating: Number(djangoFavorite.recipe.avg_rating) || 0,
+          ratingCount: Number(djangoFavorite.recipe.rating_count) || 0,
+          imageUrl: djangoFavorite.recipe.image_url,
+          tags: djangoFavorite.recipe.tags || [],
+          createdAt: djangoFavorite.recipe.created_at ? new Date(djangoFavorite.recipe.created_at) : new Date(),
+          updatedAt: djangoFavorite.recipe.updated_at ? new Date(djangoFavorite.recipe.updated_at) : new Date()
+        },
+        personalRating: djangoFavorite.personal_rating,
+        personalNotes: djangoFavorite.personal_notes,
+        addedAt: new Date(djangoFavorite.created_at)
+      };
       
       // Update local state
       setFavorites(prev => {
@@ -110,20 +165,18 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const success = await removeFromFavorites(user.id, recipeId);
+      await DjangoFavoritesService.removeFromFavoritesByRecipeId(recipeId);
       
-      if (success) {
-        // Update local state
-        setFavorites(prev => prev.filter(fav => fav.recipeId !== recipeId));
-        setFavoriteIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(recipeId);
-          return newSet;
-        });
-      }
+      // Update local state
+      setFavorites(prev => prev.filter(fav => fav.recipeId !== recipeId));
+      setFavoriteIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(recipeId);
+        return newSet;
+      });
       
       setError(null);
-      return success;
+      return true;
     } catch (err) {
       console.error('Failed to remove favorite:', err);
       setError('Failed to remove from favorites');
@@ -152,19 +205,44 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const updatedFavorite = await updateFavorite(user.id, recipeId, personalRating, personalNotes);
-      
-      if (updatedFavorite) {
-        // Update local state
-        setFavorites(prev => 
-          prev.map(fav => 
-            fav.recipeId === recipeId ? updatedFavorite : fav
-          )
-        );
+      // Find the favorite to update
+      const existingFavorite = favorites.find(fav => fav.recipeId === recipeId);
+      if (!existingFavorite) {
+        setError('Favorite not found');
+        return false;
       }
+
+      // For now, we'll need to find the Django favorite ID
+      // This is a limitation of the current implementation
+      const { favorites: djangoFavorites } = await DjangoFavoritesService.getUserFavorites();
+      const djangoFavorite = djangoFavorites.find(fav => fav.recipe.id === recipeId);
+      
+      if (!djangoFavorite) {
+        setError('Favorite not found in backend');
+        return false;
+      }
+
+      const updatedDjangoFavorite = await DjangoFavoritesService.updateFavorite(djangoFavorite.id, {
+        personal_rating: personalRating,
+        personal_notes: personalNotes
+      });
+      
+      // Convert to database format
+      const updatedFavorite: Favorite = {
+        ...existingFavorite,
+        personalRating: updatedDjangoFavorite.personal_rating,
+        personalNotes: updatedDjangoFavorite.personal_notes
+      };
+      
+      // Update local state
+      setFavorites(prev => 
+        prev.map(fav => 
+          fav.recipeId === recipeId ? updatedFavorite : fav
+        )
+      );
       
       setError(null);
-      return !!updatedFavorite;
+      return true;
     } catch (err) {
       console.error('Failed to update favorite:', err);
       setError('Failed to update favorite details');
@@ -177,7 +255,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   }, [favoriteIds]);
 
   const getFavoritesByMeal = useCallback((mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack'): Favorite[] => {
-    return favorites.filter(fav => fav.recipe.mealType === mealType);
+    return favorites.filter(fav => 
+      fav.recipe.tags?.includes(mealType) || 
+      fav.recipe.tags?.includes(mealType.toLowerCase())
+    );
   }, [favorites]);
 
   const refreshFavorites = useCallback(async () => {

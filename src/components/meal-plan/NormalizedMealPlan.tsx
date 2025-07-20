@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { useNormalizedMealPlan } from "@/contexts/NormalizedMealPlanContext";
 import { useAuth } from "@/contexts/AuthContext";
 import RecipeSelectionDialog from "./dialogs/RecipeSelectionDialog";
+import RecipeDetailsDialog from "./dialogs/RecipeDetailsDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { AlertCircle, Trash2, Utensils, CalendarDays, Plus, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -30,63 +32,78 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { WeekSelector, getMondayOfWeek } from "@/components/ui/week-selector";
 import { useToast } from "@/hooks/use-toast";
-import type { MealPlan, MealPlanItem, Recipe } from '@/types/database.types';
+import type { MealPlanItem, Recipe } from '@/types/database.types';
 
-const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
 interface MealSlotProps {
-  mealPlanId: string;
   dayOfWeek: number;
   mealType: typeof MEAL_TYPES[number];
   items: MealPlanItem[];
   onAssignRecipe: (dayOfWeek: number, mealType: typeof MEAL_TYPES[number]) => void;
-  onRemoveRecipe: (dayOfWeek: number, mealType: typeof MEAL_TYPES[number]) => void;
+  onRemoveRecipe: (dayOfWeek: number, mealType: typeof MEAL_TYPES[number], recipeId: string) => void;
+  onViewRecipeDetails: (recipe: Recipe) => void;
 }
 
-function MealSlot({ mealPlanId, dayOfWeek, mealType, items, onAssignRecipe, onRemoveRecipe }: MealSlotProps) {
-  const mealItem = items.find(item => item.dayOfWeek === dayOfWeek && item.mealType === mealType);
+function MealSlot({ dayOfWeek, mealType, items, onAssignRecipe, onRemoveRecipe, onViewRecipeDetails }: MealSlotProps) {
+  const mealItems = items.filter(item => item.dayOfWeek === dayOfWeek && item.mealType === mealType);
   
   return (
-    <div className="border rounded-lg p-3 bg-card/50 min-h-[120px] flex flex-col">
+    <div className="meal-slot">
       <h4 className="font-medium text-sm text-center text-primary capitalize mb-2">
         {mealType}
       </h4>
       
-      {mealItem ? (
+      {mealItems.length > 0 ? (
         <div className="flex-1 space-y-2">
-          <div className="bg-background/80 rounded p-2 border">
-            <h5 className="font-medium text-sm">{mealItem.recipe.name}</h5>
-            {mealItem.recipe.description && (
-              <p className="text-xs text-muted-foreground mt-1">{mealItem.recipe.description}</p>
-            )}
-            <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-              <span>{mealItem.recipe.prepTime + mealItem.recipe.cookTime} min</span>
-              <span>{mealItem.recipe.difficulty}</span>
+          {mealItems.map((mealItem, index) => (
+            <div 
+              key={`${mealItem.recipeId}-${index}`} 
+              className="simple-recipe-card group cursor-pointer"
+              onClick={() => onViewRecipeDetails(mealItem.recipe)}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground truncate flex-1 pr-2 text-center">
+                  {mealItem.recipe.name}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveRecipe(dayOfWeek, mealType, mealItem.recipe.id);
+                  }}
+                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 flex-shrink-0"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
+          ))}
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAssignRecipe(dayOfWeek, mealType)}
+              className="text-primary border-primary hover:bg-primary/10 h-8 w-8 p-0 border-dashed"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onRemoveRecipe(dayOfWeek, mealType)}
-            className="w-full text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <Trash2 className="h-3 w-3 mr-1" />
-            Remove
-          </Button>
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <p className="text-xs text-muted-foreground italic mb-2">No {mealType} planned</p>
+          <p className="text-xs text-muted-foreground italic mb-2 text-center">No {mealType} planned</p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onAssignRecipe(dayOfWeek, mealType)}
-            className="text-primary border-primary hover:bg-primary/10"
+            className="text-primary border-primary hover:bg-primary/10 h-8 w-8 p-0 border-dashed"
           >
-            <Plus className="h-3 w-3 mr-1" />
-            Add {mealType}
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
       )}
@@ -104,18 +121,17 @@ interface CreateMealPlanDialogProps {
 function CreateMealPlanDialog({ isOpen, onClose, onSubmit, isLoading }: CreateMealPlanDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [weekStartDate, setWeekStartDate] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState<Date>(getMondayOfWeek(new Date()));
 
   const handleSubmit = () => {
-    if (!name.trim() || !weekStartDate) return;
+    if (!name.trim()) return;
     
-    const startDate = new Date(weekStartDate);
-    onSubmit(name.trim(), description.trim(), startDate);
+    onSubmit(name.trim(), description.trim(), selectedWeek);
     
     // Reset form
     setName('');
     setDescription('');
-    setWeekStartDate('');
+    setSelectedWeek(getMondayOfWeek(new Date()));
   };
 
   return (
@@ -152,14 +168,14 @@ function CreateMealPlanDialog({ isOpen, onClose, onSubmit, isLoading }: CreateMe
           </div>
           
           <div>
-            <Label htmlFor="weekStartDate">Week Start Date</Label>
-            <Input
-              id="weekStartDate"
-              type="date"
-              value={weekStartDate}
-              onChange={(e) => setWeekStartDate(e.target.value)}
-              disabled={isLoading}
-            />
+            <Label htmlFor="weekSelector">Select Week</Label>
+            <div className="mt-2">
+              <WeekSelector
+                selectedWeek={selectedWeek}
+                onWeekChange={setSelectedWeek}
+                disabled={isLoading}
+              />
+            </div>
           </div>
         </div>
         
@@ -169,7 +185,7 @@ function CreateMealPlanDialog({ isOpen, onClose, onSubmit, isLoading }: CreateMe
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={!name.trim() || !weekStartDate || isLoading}
+            disabled={!name.trim() || isLoading}
           >
             {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Plan
@@ -202,6 +218,8 @@ export default function NormalizedMealPlan() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
+  const [isRecipeDetailsDialogOpen, setIsRecipeDetailsDialogOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{
     dayOfWeek: number;
     mealType: typeof MEAL_TYPES[number];
@@ -324,7 +342,7 @@ export default function NormalizedMealPlan() {
     }
   };
 
-  const handleRemoveRecipe = async (dayOfWeek: number, mealType: typeof MEAL_TYPES[number]) => {
+  const handleRemoveRecipe = async (dayOfWeek: number, mealType: typeof MEAL_TYPES[number], recipeId: string) => {
     if (!activeMealPlan) return;
     
     try {
@@ -340,6 +358,11 @@ export default function NormalizedMealPlan() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleViewRecipeDetails = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setIsRecipeDetailsDialogOpen(true);
   };
 
   if (isLoading) {
@@ -424,12 +447,12 @@ export default function NormalizedMealPlan() {
                   {MEAL_TYPES.map((mealType) => (
                     <MealSlot
                       key={`${dayIndex}-${mealType}`}
-                      mealPlanId={activeMealPlan.id}
                       dayOfWeek={dayIndex}
                       mealType={mealType}
                       items={activeMealPlan.items}
                       onAssignRecipe={handleAssignRecipe}
                       onRemoveRecipe={handleRemoveRecipe}
+                      onViewRecipeDetails={handleViewRecipeDetails}
                     />
                   ))}
                 </CardContent>
@@ -504,8 +527,19 @@ export default function NormalizedMealPlan() {
           setSelectedSlot(null);
         }}
         onSelectRecipe={handleRecipeSelected}
+        currentUserId={user?.id}
         mealType={selectedSlot?.mealType}
         dayName={selectedSlot ? DAYS_OF_WEEK[selectedSlot.dayOfWeek] : undefined}
+      />
+
+      {/* Recipe Details Dialog */}
+      <RecipeDetailsDialog
+        isOpen={isRecipeDetailsDialogOpen}
+        recipe={selectedRecipe}
+        onClose={() => {
+          setIsRecipeDetailsDialogOpen(false);
+          setSelectedRecipe(null);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
