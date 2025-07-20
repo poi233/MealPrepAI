@@ -217,6 +217,7 @@ export default function NormalizedMealPlan() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<{id: string; name: string} | null>(null);
   const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
   const [isRecipeDetailsDialogOpen, setIsRecipeDetailsDialogOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -284,7 +285,7 @@ export default function NormalizedMealPlan() {
   };
 
   const handleDeleteMealPlan = async () => {
-    if (!activeMealPlan) return;
+    if (!planToDelete) return;
     
     setIsDeleting(true);
     try {
@@ -292,7 +293,7 @@ export default function NormalizedMealPlan() {
       
       toast({
         title: "Meal Plan Deleted",
-        description: `"${activeMealPlan.name}" has been deleted.`,
+        description: `"${planToDelete.name}" has been deleted.`,
       });
       
       // Reload user meal plans
@@ -305,6 +306,7 @@ export default function NormalizedMealPlan() {
       }
       
       setIsDeleteDialogOpen(false);
+      setPlanToDelete(null);
     } catch (err) {
       toast({
         title: "Error",
@@ -314,6 +316,11 @@ export default function NormalizedMealPlan() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleDeleteClick = (planId: string, planName: string) => {
+    setPlanToDelete({ id: planId, name: planName });
+    setIsDeleteDialogOpen(true);
   };
 
   const handleAssignRecipe = async (dayOfWeek: number, mealType: typeof MEAL_TYPES[number]) => {
@@ -417,17 +424,6 @@ export default function NormalizedMealPlan() {
             <Plus className="h-4 w-4 mr-2" />
             New Plan
           </Button>
-          
-          {activeMealPlan && (
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(true)}
-              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          )}
         </div>
       </div>
 
@@ -494,16 +490,26 @@ export default function NormalizedMealPlan() {
                     <span>Week of {plan.weekStartDate.toLocaleDateString()}</span>
                     <span>{plan.items.length} meals</span>
                   </div>
-                  {activeMealPlan?.id !== plan.id && (
+                  <div className="flex gap-2 mt-3">
+                    {activeMealPlan?.id !== plan.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => user?.id && setAsActive(user.id, plan.id)}
+                      >
+                        Set Active
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-3"
-                      onClick={() => user?.id && setAsActive(user.id, plan.id)}
+                      onClick={() => handleDeleteClick(plan.id, plan.name)}
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     >
-                      Set Active
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -548,7 +554,7 @@ export default function NormalizedMealPlan() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Meal Plan</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{activeMealPlan?.name}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{planToDelete?.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

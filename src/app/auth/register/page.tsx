@@ -141,7 +141,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full flex justify-center">
       <Card className="w-full max-w-2xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>

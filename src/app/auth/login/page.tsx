@@ -57,7 +57,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="w-full">
+        <div className="w-full flex justify-center">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
