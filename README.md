@@ -7,7 +7,7 @@ MealPrepAI is a Next.js application designed to help users generate personalized
 - **AI-Powered Meal Plan Generation**: Leverages Genkit and Google's Gemini models to create customized 7-day meal plans.
 - **Normalized Meal Plan System**: Clean, efficient meal plan management with proper database relationships.
 - **Recipe Management**: Browse and select from a curated collection of sample recipes.
-- **Simple Favorites System**: Mark recipes as favorites for quick access and meal planning.
+- **Comprehensive Favorites System**: Save recipes with personal ratings (1-5 stars) and notes, detailed favorite views, and organized collections for quick access and meal planning.
 - **Interactive Meal Plan Management**:
     - View weekly meal plans in a responsive grid layout.
     - Manually add recipes to any meal slot (breakfast, lunch, dinner, snack).
@@ -26,6 +26,16 @@ MealPrepAI is a Next.js application designed to help users generate personalized
 - **Database**: Vercel Postgres (powered by Neon)
 - **State Management**: React Context API
 - **Form Handling**: React Hook Form, Zod for validation
+
+## Multi-Platform Architecture
+
+This Next.js application is part of a comprehensive meal planning ecosystem:
+
+- **Web Application**: This Next.js frontend (current directory)
+- **Backend API**: Django REST API (`../MealPrepAppBackend/`)
+- **iOS Application**: Native Swift app (`../MealPrepIOSApp/`)
+
+All platforms share the same backend API and maintain consistent data models with flexible parsing for cross-platform compatibility.
 
 ## Getting Started
 
